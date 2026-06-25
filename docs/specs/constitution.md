@@ -1,6 +1,5 @@
 # Constitution — VulnTrack Reports
 
-> **Estado:** BORRADOR — pendiente de aprobación humana  
 > **Versión:** 1.0  
 > **Fecha:** 2026-06-23  
 > **Propósito:** Principios y reglas no negociables. Toda decisión de diseño, arquitectura o implementación debe ser justificable frente a este documento. Si un principio entra en conflicto con otro, el orden aquí establece la precedencia.
