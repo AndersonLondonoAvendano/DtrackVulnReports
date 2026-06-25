@@ -5,7 +5,6 @@
 > **Cambios v1.1:** Supuestos confirmados incorporados; estructura del reporte de referencia documentada; fórmula de priorización definida; ajustes de alcance (PDF en scope; exportación de planes; KEV on-demand).
 
 ---
-
 ## 1. Problema
 
 ### 1.1 Situación actual
