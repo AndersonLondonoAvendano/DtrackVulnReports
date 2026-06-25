@@ -1,6 +1,5 @@
 # Spec — VulnTrack Reports
 
-> **Estado:** BORRADOR v2 — pendiente de aprobación humana  
 > **Versión:** 1.1  
 > **Fecha:** 2026-06-23  
 > **Cambios v1.1:** Supuestos confirmados incorporados; estructura del reporte de referencia documentada; fórmula de priorización definida; ajustes de alcance (PDF en scope; exportación de planes; KEV on-demand).
