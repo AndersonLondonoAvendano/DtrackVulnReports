@@ -1,6 +1,5 @@
 # Plan técnico — VulnTrack Reports
 
-> **Estado:** BORRADOR — pendiente de aprobación humana  
 > **Versión:** 1.0  
 > **Fecha:** 2026-06-23  
 > **Trazabilidad:** Implementa spec.md v1.1, respeta constitution.md v1.0.
