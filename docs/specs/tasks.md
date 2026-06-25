@@ -1,6 +1,5 @@
 # Tasks — VulnTrack Reports
 
-> **Estado:** EN IMPLEMENTACIÓN  
 > **Versión:** 1.1  
 > **Fecha:** 2026-06-23  
 > **Trazabilidad:** Desglosa plan.md v1.0. Cada tarea es ejecutable de forma autónoma.  
