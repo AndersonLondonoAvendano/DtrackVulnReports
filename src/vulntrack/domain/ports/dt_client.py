@@ -1,0 +1,19 @@
+from typing import Protocol
+
+
+class DtClientPort(Protocol):
+    async def get_projects(
+        self, page: int = 1, page_size: int = 100
+    ) -> "tuple[list[object], int]": ...
+
+    async def get_all_projects(self) -> "list[object]": ...
+
+    async def get_project_metrics(self, uuid: str) -> object: ...
+
+    async def get_project_findings(self, uuid: str) -> "list[object]": ...
+
+    async def get_project_metric_history(
+        self, uuid: str, days: int = 90
+    ) -> "list[object]": ...
+
+    async def get_server_version(self) -> str: ...

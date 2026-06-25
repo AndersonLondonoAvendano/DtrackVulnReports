@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Proyectos — VulnTrack{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-navy">Proyectos</h1>
+    <span class="text-sm text-gray-500">{{ projects|length }} proyecto(s)</span>
+  </div>
+
+  <!-- Filtro de búsqueda -->
+  <form method="get" class="flex gap-2">
+    <input type="text" name="search" value="{{ search or '' }}"
+           placeholder="Buscar proyecto…"
+           class="border rounded px-3 py-1.5 text-sm flex-1 max-w-xs focus:outline-none focus:ring-2 focus:ring-navy">
+    <button type="submit" class="bg-navy text-white text-sm px-4 py-1.5 rounded hover:bg-blue-800">
+      Buscar
+    </button>
+    {% if search %}
+    <a href="/projects" class="text-sm text-gray-500 px-3 py-1.5 border rounded hover:bg-gray-100">Limpiar</a>
+    {% endif %}
+  </form>
+
+  {% if projects %}
+  <div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="table-header">
+          <th class="px-4 py-3 text-left">
+            <a href="?sort=name&order={{ 'desc' if sort=='name' and order=='asc' else 'asc' }}&search={{ search or '' }}"
+               class="hover:text-yellow-300">Nombre ↕</a>
+          </th>
+          <th class="px-4 py-3 text-left">Versión</th>
+          <th class="px-4 py-3 text-left">Última sync</th>
+          <th class="px-4 py-3 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">
+            <a href="/projects/{{ p.uuid }}" class="text-navy hover:underline">{{ p.name }}</a>
+          </td>
+          <td class="px-4 py-3 text-gray-500">{{ p.version or '—' }}</td>
+          <td class="px-4 py-3 text-gray-500">
+            {{ p.last_synced_at.strftime('%d/%m/%Y %H:%M') if p.last_synced_at else '—' }}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="/projects/{{ p.uuid }}"
+               class="text-blue-600 hover:underline text-xs">Ver detalle →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+    <p>No se encontraron proyectos{% if search %} con el término "{{ search }}"{% endif %}.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

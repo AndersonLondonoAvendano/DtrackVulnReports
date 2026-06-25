@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from vulntrack.domain.entities.project import Project
+
+
+class ProjectRepository(Protocol):
+    async def upsert(self, project: Project) -> None: ...
+
+    async def get_by_uuid(self, uuid: str) -> Project | None: ...
+
+    async def list_all(self) -> list[Project]: ...
+
+    async def count(self) -> int: ...

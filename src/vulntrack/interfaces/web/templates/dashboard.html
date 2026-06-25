@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — VulnTrack Reports{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Encabezado + botón sync -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-navy">Dashboard del Portafolio</h1>
+    <div class="flex items-center gap-3">
+      <div id="sync-status"
+           hx-get="/api/v1/sync/status"
+           hx-trigger="every 30s"
+           hx-swap="outerHTML"
+           class="text-sm text-gray-500 flex items-center gap-2">
+        {% if data and data.last_sync_at %}
+          <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+          Última sync: {{ data.last_sync_at.strftime('%d/%m/%Y %H:%M') }}
+        {% else %}
+          <span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
+          Sin sincronización
+        {% endif %}
+      </div>
+      <button
+        hx-post="/api/v1/sync/run"
+        hx-swap="none"
+        hx-on::after-request="document.getElementById('sync-toast').classList.remove('hidden')"
+        class="bg-navy text-white text-sm px-4 py-2 rounded hover:bg-blue-800 transition-colors">
+        ↺ Sincronizar ahora
+      </button>
+    </div>
+  </div>
+
+  <div id="sync-toast"
+       class="hidden bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-2 rounded">
+    Sincronización iniciada en segundo plano…
+  </div>
+
+  {% if not data or data.total_vigentes == 0 and data.total_proyectos == 0 %}
+  <!-- Estado vacío -->
+  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+    <p class="text-lg font-medium">Sin datos</p>
+    <p class="text-sm mt-2">Configura la conexión en
+      <a href="/settings" class="text-blue-600 underline">Configuración</a>
+      y ejecuta la primera sincronización.
+    </p>
+  </div>
+  {% else %}
+
+  <!-- Banner KPIs -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-critical">
+      <div class="text-3xl font-bold text-critical">{{ data.total_vigentes }}</div>
+      <div class="text-sm text-gray-600 mt-1">Vulnerabilidades vigentes</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-high">
+      <div class="text-3xl font-bold text-high">{{ data.proyectos_con_criticas }}</div>
+      <div class="text-sm text-gray-600 mt-1">Proyectos con críticas</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-red-700">
+      <div class="text-3xl font-bold text-red-700">{{ data.kev_hits_count }}</div>
+      <div class="text-sm text-gray-600 mt-1">Vulnerabilidades en KEV</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-low">
+      <div class="text-3xl font-bold text-low">{{ data.proyectos_en_cero }}</div>
+      <div class="text-sm text-gray-600 mt-1">Proyectos en cero</div>
+    </div>
+  </div>
+
+  <!-- Distribución por severidad + resumen tareas -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-lg font-semibold text-navy mb-4">Distribución por severidad</h2>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="table-header">
+            <th class="px-4 py-2 text-left rounded-tl">Severidad</th>
+            <th class="px-4 py-2 text-right rounded-tr">Hallazgos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sev_key, label in [('CRITICAL','Crítica'),('HIGH','Alta'),('MEDIUM','Media'),('LOW','Baja'),('UNASSIGNED','Sin asignar')] %}
+          <tr class="border-b">
+            <td class="px-4 py-2">
+              <span class="sev-{{ sev_key|lower }} px-2 py-0.5 rounded text-xs font-medium">{{ label }}</span>
+            </td>
+            <td class="px-4 py-2 text-right font-semibold">
+              {{ data.vigentes_por_severidad.get(sev_key, 0) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-lg font-semibold text-navy mb-4">Resumen de remediación</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="text-center p-4 bg-yellow-50 rounded">
+          <div class="text-2xl font-bold text-yellow-600">{{ data.tasks_summary.pending }}</div>
+          <div class="text-xs text-gray-600 mt-1">Pendientes</div>
+        </div>
+        <div class="text-center p-4 bg-blue-50 rounded">
+          <div class="text-2xl font-bold text-blue-600">{{ data.tasks_summary.in_progress }}</div>
+          <div class="text-xs text-gray-600 mt-1">En progreso</div>
+        </div>
+        <div class="text-center p-4 bg-green-50 rounded">
+          <div class="text-2xl font-bold text-green-600">{{ data.tasks_summary.completed }}</div>
+          <div class="text-xs text-gray-600 mt-1">Completadas</div>
+        </div>
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <div class="text-2xl font-bold text-gray-600">{{ data.total_proyectos }}</div>
+          <div class="text-xs text-gray-600 mt-1">Proyectos totales</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accesos rápidos -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <a href="/projects" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
+      <div class="text-navy font-semibold">📁 Proyectos</div>
+      <div class="text-xs text-gray-500 mt-1">Ver todos los proyectos</div>
+    </a>
+    <a href="/prioritization" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
+      <div class="text-navy font-semibold">🎯 Priorización</div>
+      <div class="text-xs text-gray-500 mt-1">Hallazgos por riesgo</div>
+    </a>
+    <a href="/kev" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
+      <div class="text-navy font-semibold">🚨 KEV</div>
+      <div class="text-xs text-gray-500 mt-1">Explotaciones activas</div>
+    </a>
+    <a href="/reports" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
+      <div class="text-navy font-semibold">📄 Reportes</div>
+      <div class="text-xs text-gray-500 mt-1">Generar reportes ejecutivos</div>
+    </a>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}

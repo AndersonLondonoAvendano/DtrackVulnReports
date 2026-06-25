@@ -1,0 +1,15 @@
+# Overrides para desarrollo local — NO incluir en producción
+services:
+  app:
+    build:
+      target: base
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src   # hot-reload del código fuente
+    environment:
+      DEBUG: "true"
+      LOG_LEVEL: "DEBUG"
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn vulntrack.interfaces.web.main:app
+             --host 0.0.0.0 --port 8000 --reload --reload-dir src"

@@ -1,0 +1,57 @@
+# Entorno y secretos
+.env
+*.env.local
+*.env.*.local
+
+# Base de datos local
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+.uv/
+
+# uv
+uv.lock
+
+# Herramientas de calidad
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.coveragerc
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+.claude
+.claude/
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Reportes generados (temporales)
+generated_reports/

@@ -1,0 +1,63 @@
+{
+  "title": "CISA Known Exploited Vulnerabilities Catalog",
+  "catalogVersion": "2024.06.10",
+  "dateReleased": "2024-06-10T00:00:00.0000Z",
+  "count": 5,
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-2021-44228",
+      "vendorProject": "Apache",
+      "product": "Log4j2",
+      "vulnerabilityName": "Apache Log4j2 Remote Code Execution Vulnerability",
+      "dateAdded": "2021-12-10",
+      "shortDescription": "Apache Log4j2 contains a remote code execution vulnerability.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2021-12-24",
+      "notes": "Known as Log4Shell."
+    },
+    {
+      "cveID": "CVE-2022-22965",
+      "vendorProject": "VMware",
+      "product": "Spring Framework",
+      "vulnerabilityName": "Spring Framework Remote Code Execution Vulnerability",
+      "dateAdded": "2022-04-04",
+      "shortDescription": "Spring Framework allows remote code execution via data binding.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2022-04-25",
+      "notes": ""
+    },
+    {
+      "cveID": "CVE-2022-42003",
+      "vendorProject": "FasterXML",
+      "product": "jackson-databind",
+      "vulnerabilityName": "FasterXML jackson-databind Deserialization Vulnerability",
+      "dateAdded": "2023-02-10",
+      "shortDescription": "FasterXML jackson-databind allows resource exhaustion.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": null,
+      "notes": null
+    },
+    {
+      "cveID": "CVE-2023-23397",
+      "vendorProject": "Microsoft",
+      "product": "Outlook",
+      "vulnerabilityName": "Microsoft Outlook Elevation of Privilege Vulnerability",
+      "dateAdded": "2023-03-14",
+      "shortDescription": "Microsoft Outlook contains a privilege escalation vulnerability.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2023-03-28",
+      "notes": null
+    },
+    {
+      "cveID": "CVE-2024-21410",
+      "vendorProject": "Microsoft",
+      "product": "Exchange Server",
+      "vulnerabilityName": "Microsoft Exchange Server Elevation of Privilege Vulnerability",
+      "dateAdded": "2024-02-14",
+      "shortDescription": "Microsoft Exchange Server contains a privilege escalation vulnerability.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2024-02-28",
+      "notes": ""
+    }
+  ]
+}

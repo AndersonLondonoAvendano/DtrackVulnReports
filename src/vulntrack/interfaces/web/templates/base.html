@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}VulnTrack Reports{% endblock %}</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            critical: '#C00000',
+            high:     '#FF6600',
+            medium:   '#FFC000',
+            low:      '#00B050',
+            unassigned: '#808080',
+            navy:     '#1F3864',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+
+  <!-- Chart.js para el dashboard web -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+
+  <style>
+    /* Colores de severidad para heatmap */
+    .sev-critical { background-color: #C00000; color: white; }
+    .sev-high     { background-color: #FF6600; color: white; }
+    .sev-medium   { background-color: #FFC000; color: #1a1a1a; }
+    .sev-low      { background-color: #00B050; color: white; }
+    .sev-unassigned { background-color: #808080; color: white; }
+    .table-header { background-color: #1F3864; color: white; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-navy text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="text-xl font-bold tracking-tight">🛡️ VulnTrack Reports</a>
+      <div class="flex gap-6 text-sm font-medium">
+        <a href="/"               class="hover:text-yellow-300 transition-colors">Dashboard</a>
+        <a href="/projects"       class="hover:text-yellow-300 transition-colors">Proyectos</a>
+        <a href="/prioritization" class="hover:text-yellow-300 transition-colors">Priorización</a>
+        <a href="/kev"            class="hover:text-yellow-300 transition-colors">KEV</a>
+        <a href="/reports"        class="hover:text-yellow-300 transition-colors">Reportes</a>
+        <a href="/remediation"    class="hover:text-yellow-300 transition-colors">Remediación</a>
+        <a href="/settings"       class="hover:text-yellow-300 transition-colors">Configuración</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Contenido principal -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 mt-12 py-4 text-center text-xs text-gray-400">
+    VulnTrack Reports · Fuente: Dependency-Track · Datos en español
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

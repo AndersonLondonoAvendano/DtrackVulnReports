@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Remediación — VulnTrack{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <h1 class="text-2xl font-bold text-navy">Planes de Remediación</h1>
+
+  {% if plans_by_proj %}
+  {% for project, plans in plans_by_proj.items() %}
+  <div class="bg-white rounded-lg shadow p-5">
+    <h2 class="text-lg font-semibold text-navy mb-3">
+      <a href="/projects/{{ project.uuid }}" class="hover:underline">{{ project.name }}</a>
+    </h2>
+    <div class="space-y-2">
+      {% for plan in plans %}
+      <div class="flex items-center justify-between border rounded px-4 py-3 hover:bg-gray-50">
+        <div>
+          <span class="font-medium">{{ plan.name }}</span>
+          {% if plan.description %}
+          <span class="text-gray-400 text-sm ml-2">{{ plan.description }}</span>
+          {% endif %}
+          <span class="text-xs text-gray-400 ml-3">Creado: {{ plan.created_at.strftime('%d/%m/%Y') }}</span>
+        </div>
+        <div class="flex gap-2">
+          <a href="/remediation/{{ plan.id }}"
+             class="text-blue-600 hover:underline text-sm">Ver plan →</a>
+          <form method="post" action="/api/v1/remediation/plans/{{ plan.id }}/suggest"
+                onsubmit="return confirm('¿Generar sugerencias automáticas para este plan?')">
+            <button type="submit"
+                    class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200">
+              Sugerir tareas
+            </button>
+          </form>
+          <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
+             class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">
+            Exportar .xlsx
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+    <p>No hay planes de remediación creados.</p>
+    <p class="text-sm mt-2">Ve al detalle de un proyecto y crea un plan desde allí.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

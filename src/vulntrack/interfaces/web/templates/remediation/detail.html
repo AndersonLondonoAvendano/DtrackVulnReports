@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ plan.name }} — Remediación{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Encabezado -->
+  <div class="flex items-start justify-between">
+    <div>
+      <div class="text-sm text-gray-400 mb-1">
+        <a href="/remediation" class="hover:text-navy">← Planes de remediación</a>
+      </div>
+      <h1 class="text-2xl font-bold text-navy">{{ plan.name }}</h1>
+      {% if plan.description %}<p class="text-gray-500 text-sm">{{ plan.description }}</p>{% endif %}
+    </div>
+    <div class="flex gap-2">
+      <button
+        hx-post="/api/v1/remediation/plans/{{ plan.id }}/suggest"
+        hx-swap="none"
+        hx-on::after-request="window.location.reload()"
+        class="bg-yellow-500 text-white text-sm px-4 py-2 rounded hover:bg-yellow-600">
+        ✨ Generar sugerencias
+      </button>
+      <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
+         class="bg-green-600 text-white text-sm px-4 py-2 rounded hover:bg-green-700">
+        ↓ Exportar .xlsx
+      </a>
+      <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=pdf"
+         class="bg-red-600 text-white text-sm px-4 py-2 rounded hover:bg-red-700">
+        ↓ Exportar PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabla de tareas -->
+  <div class="bg-white rounded-lg shadow p-5">
+    <h2 class="text-lg font-semibold text-navy mb-4">
+      Tareas
+      <span class="text-sm font-normal text-gray-500 ml-2">({{ tasks|length }})</span>
+    </h2>
+    {% if tasks %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="table-header">
+            <th class="px-3 py-2 text-left">Tarea</th>
+            <th class="px-3 py-2 text-center">Prioridad</th>
+            <th class="px-3 py-2 text-center">Estado</th>
+            <th class="px-3 py-2 text-left">Responsable</th>
+            <th class="px-3 py-2 text-center">Fecha objetivo</th>
+            <th class="px-3 py-2 text-center">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in tasks %}
+          <tr class="border-b hover:bg-gray-50 {{ 'opacity-50' if task.status.value == 'DISCARDED' }}">
+            <td class="px-3 py-2">
+              <div class="font-medium">{{ task.title }}</div>
+              {% if task.recommended_action %}
+              <div class="text-xs text-gray-500 mt-0.5">{{ task.recommended_action }}</div>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-center">
+              <span class="px-2 py-0.5 rounded text-xs
+                {% if task.priority_band.value == 'IMMEDIATE' %}bg-red-100 text-red-700
+                {% elif task.priority_band.value == 'HIGH' %}bg-orange-100 text-orange-700
+                {% elif task.priority_band.value == 'MEDIUM' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-green-100 text-green-700{% endif %}">
+                {{ task.priority_band.value }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-center">
+              <!-- Status editable inline con HTMX -->
+              <select
+                hx-patch="/api/v1/remediation/tasks/{{ task.id }}"
+                hx-vals='{"status": event.target.value}'
+                hx-swap="none"
+                hx-on::after-request="this.closest('tr').classList.add('bg-green-50')"
+                class="border rounded text-xs px-2 py-1 focus:ring-2 focus:ring-navy">
+                {% for status in ['PENDING','IN_PROGRESS','COMPLETED','DISCARDED'] %}
+                <option value="{{ status }}" {{ 'selected' if task.status.value == status }}>
+                  {{ status }}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="px-3 py-2 text-gray-600">{{ task.assignee or '—' }}</td>
+            <td class="px-3 py-2 text-center {{ 'text-red-600 font-semibold' if task.is_overdue(today) }}">
+              {{ task.target_date or '—' }}
+            </td>
+            <td class="px-3 py-2 text-center text-xs text-gray-400">
+              {% if task.completed_at %}✓ {{ task.completed_at.strftime('%d/%m') }}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-400">
+      <p>Este plan no tiene tareas aún.</p>
+      <p class="text-sm mt-2">Usa el botón "Generar sugerencias" para crear tareas automáticamente.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

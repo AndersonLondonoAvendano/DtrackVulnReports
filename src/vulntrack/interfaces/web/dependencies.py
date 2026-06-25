@@ -1,0 +1,273 @@
+"""Contenedor de dependencias FastAPI — T-071.
+
+Cada función es una dependency inyectable con Depends().
+Las dependencias de repositorios son por-request (usan la sesión DB del request).
+Las dependencias de clientes externos se crean por-request pero son stateless.
+"""
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncGenerator
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from vulntrack.application.queries.dashboard_query import DashboardQuery
+from vulntrack.application.queries.prioritized_findings_query import PrioritizedFindingsQuery
+from vulntrack.application.queries.project_detail_query import ProjectDetailQuery
+from vulntrack.application.remediation.create_plan import CreatePlanUseCase
+from vulntrack.application.remediation.export_plan import ExportPlanUseCase
+from vulntrack.application.remediation.suggest_tasks import SuggestTasksUseCase
+from vulntrack.application.remediation.update_task import UpdateTaskUseCase
+from vulntrack.application.reports.build_report_data import BuildReportDataUseCase
+from vulntrack.application.reports.generate_portfolio_report import (
+    GeneratePortfolioReportUseCase,
+    ReportFormat,
+)
+from vulntrack.application.reports.generate_project_report import GenerateProjectReportUseCase
+from vulntrack.application.sync.sync_kev import SyncKevUseCase
+from vulntrack.application.sync.sync_portfolio import SyncPortfolioUseCase
+from vulntrack.config import Settings, get_settings
+from vulntrack.domain.services.kev_matcher import KevMatcher
+from vulntrack.infrastructure.dt.client import DtHttpClient
+from vulntrack.infrastructure.kev.cisa_kev_client import CisaKevClient
+from vulntrack.infrastructure.persistence.database import get_session
+from vulntrack.infrastructure.persistence.repositories.app_settings_repo import (
+    SqliteAppSettingsRepository,
+)
+from vulntrack.infrastructure.persistence.repositories.finding_repo import SqliteFindingRepository
+from vulntrack.infrastructure.persistence.repositories.kev_repo import SqliteKevRepository
+from vulntrack.infrastructure.persistence.repositories.project_repo import SqliteProjectRepository
+from vulntrack.infrastructure.persistence.repositories.remediation_repo import (
+    SqliteRemediationRepository,
+)
+from vulntrack.infrastructure.persistence.repositories.snapshot_repo import (
+    SqliteSnapshotRepository,
+)
+# NOTE: DocxGenerator, XlsxGenerator, PdfGenerator imported lazily in _make_generators()
+# to avoid WeasyPrint/GTK import errors on Windows where GTK is unavailable.
+
+# ── Sesión DB ─────────────────────────────────────────────────────────────────
+
+
+async def get_db(
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> AsyncGenerator[AsyncSession, None]:
+    yield session  # type: ignore[misc]
+
+
+def get_app_settings() -> Settings:
+    return get_settings()
+
+
+# ── Repositorios (por-request, comparten sesión) ──────────────────────────────
+
+
+async def get_project_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteProjectRepository:
+    return SqliteProjectRepository(db)
+
+
+async def get_finding_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteFindingRepository:
+    return SqliteFindingRepository(db)
+
+
+async def get_snapshot_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteSnapshotRepository:
+    return SqliteSnapshotRepository(db)
+
+
+async def get_kev_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteKevRepository:
+    return SqliteKevRepository(db)
+
+
+async def get_remediation_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteRemediationRepository:
+    return SqliteRemediationRepository(db)
+
+
+async def get_app_settings_repo(
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> SqliteAppSettingsRepository:
+    return SqliteAppSettingsRepository(db)
+
+
+# ── Clientes externos ─────────────────────────────────────────────────────────
+
+
+def get_dt_client(
+    settings: Settings = Depends(get_app_settings),  # noqa: B008
+) -> DtHttpClient:
+    return DtHttpClient(
+        base_url=settings.dt_base_url_str,
+        api_key=settings.dt_api_key,
+        semaphore=asyncio.Semaphore(5),
+    )
+
+
+def get_kev_client() -> CisaKevClient:
+    return CisaKevClient()
+
+
+# ── KevMatcher (cargado desde BD por-request) ─────────────────────────────────
+
+
+async def get_kev_matcher(
+    kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+) -> KevMatcher:
+    entries = await kev_repo.list_all()
+    return KevMatcher(entries)
+
+
+# ── Queries ───────────────────────────────────────────────────────────────────
+
+
+async def get_dashboard_query(
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),  # noqa: B008
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+    app_settings_repo: SqliteAppSettingsRepository = Depends(get_app_settings_repo),  # noqa: B008
+) -> DashboardQuery:
+    app_cfg = await app_settings_repo.get()
+    return DashboardQuery(
+        project_repo=project_repo,
+        finding_repo=finding_repo,
+        kev_repo=kev_repo,
+        last_sync_at=app_cfg.last_sync_at,
+    )
+
+
+async def get_project_detail_query(
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),  # noqa: B008
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    snapshot_repo: SqliteSnapshotRepository = Depends(get_snapshot_repo),  # noqa: B008
+    remediation_repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
+    kev_matcher: KevMatcher = Depends(get_kev_matcher),  # noqa: B008
+) -> ProjectDetailQuery:
+    return ProjectDetailQuery(
+        project_repo=project_repo,
+        finding_repo=finding_repo,
+        snapshot_repo=snapshot_repo,
+        remediation_repo=remediation_repo,
+        kev_matcher=kev_matcher,
+    )
+
+
+async def get_prioritized_findings_query(
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    kev_matcher: KevMatcher = Depends(get_kev_matcher),  # noqa: B008
+) -> PrioritizedFindingsQuery:
+    return PrioritizedFindingsQuery(finding_repo=finding_repo, kev_matcher=kev_matcher)
+
+
+# ── Sync use cases ────────────────────────────────────────────────────────────
+
+
+async def get_sync_portfolio_use_case(
+    dt_client: DtHttpClient = Depends(get_dt_client),  # noqa: B008
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),  # noqa: B008
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    snapshot_repo: SqliteSnapshotRepository = Depends(get_snapshot_repo),  # noqa: B008
+) -> SyncPortfolioUseCase:
+    return SyncPortfolioUseCase(
+        dt_client=dt_client,
+        project_repo=project_repo,
+        finding_repo=finding_repo,
+        snapshot_repo=snapshot_repo,
+    )
+
+
+async def get_sync_kev_use_case(
+    kev_client: CisaKevClient = Depends(get_kev_client),  # noqa: B008
+    kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+) -> SyncKevUseCase:
+    return SyncKevUseCase(kev_client=kev_client, kev_repo=kev_repo)
+
+
+# ── Report use cases ──────────────────────────────────────────────────────────
+
+
+def _make_generators() -> dict[ReportFormat, object]:
+    from vulntrack.infrastructure.reports.docx_generator import DocxGenerator
+    from vulntrack.infrastructure.reports.xlsx_generator import XlsxGenerator
+
+    generators: dict[ReportFormat, object] = {
+        ReportFormat.DOCX: DocxGenerator(),
+        ReportFormat.XLSX: XlsxGenerator(),
+    }
+    try:
+        from vulntrack.infrastructure.reports.pdf_generator import PdfGenerator
+        generators[ReportFormat.PDF] = PdfGenerator()
+    except OSError:
+        pass  # WeasyPrint/GTK unavailable on this platform
+    return generators
+
+
+async def get_build_report_use_case(
+    project_repo: SqliteProjectRepository = Depends(get_project_repo),  # noqa: B008
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    snapshot_repo: SqliteSnapshotRepository = Depends(get_snapshot_repo),  # noqa: B008
+    kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+) -> BuildReportDataUseCase:
+    return BuildReportDataUseCase(
+        project_repo=project_repo,
+        finding_repo=finding_repo,
+        snapshot_repo=snapshot_repo,
+        kev_repo=kev_repo,
+    )
+
+
+async def get_generate_portfolio_use_case(
+    build_uc: BuildReportDataUseCase = Depends(get_build_report_use_case),  # noqa: B008
+) -> GeneratePortfolioReportUseCase:
+    from vulntrack.domain.ports.report_generator import ReportGenerator  # type: ignore[attr-defined]
+    generators: dict[ReportFormat, ReportGenerator] = _make_generators()  # type: ignore[assignment]
+    return GeneratePortfolioReportUseCase(build_use_case=build_uc, generators=generators)
+
+
+async def get_generate_project_use_case(
+    build_uc: BuildReportDataUseCase = Depends(get_build_report_use_case),  # noqa: B008
+) -> GenerateProjectReportUseCase:
+    from vulntrack.domain.ports.report_generator import ReportGenerator  # type: ignore[attr-defined]
+    generators: dict[ReportFormat, ReportGenerator] = _make_generators()  # type: ignore[assignment]
+    return GenerateProjectReportUseCase(build_use_case=build_uc, generators=generators)
+
+
+# ── Remediation use cases ─────────────────────────────────────────────────────
+
+
+async def get_create_plan_use_case(
+    repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
+) -> CreatePlanUseCase:
+    return CreatePlanUseCase(repo=repo)
+
+
+async def get_update_task_use_case(
+    repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
+) -> UpdateTaskUseCase:
+    return UpdateTaskUseCase(repo=repo)
+
+
+async def get_suggest_tasks_use_case(
+    finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
+    kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+    remediation_repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
+) -> SuggestTasksUseCase:
+    return SuggestTasksUseCase(
+        finding_repo=finding_repo,
+        kev_repo=kev_repo,
+        remediation_repo=remediation_repo,
+    )
+
+
+async def get_export_plan_use_case(
+    repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
+) -> ExportPlanUseCase:
+    return ExportPlanUseCase(repo=repo)
