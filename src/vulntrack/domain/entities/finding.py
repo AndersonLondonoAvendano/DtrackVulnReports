@@ -21,6 +21,12 @@ class Finding:
     attributed_on: datetime | None
     suppressed: bool
     last_synced_at: datetime
+    cve_id: str | None = None
+
+    @property
+    def display_id(self) -> str:
+        """CVE si existe, GHSA/vulnId si no."""
+        return self.cve_id or self.vuln_id
 
     def normalized_cvss(self) -> float:
         return (self.cvss_v3_base_score or 0.0) / 10.0

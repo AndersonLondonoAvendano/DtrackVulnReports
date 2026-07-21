@@ -1,50 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Remediación — VulnTrack{% endblock %}
+{% block title %}Remediación — VulnTrack Reports{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-  <h1 class="text-2xl font-bold text-navy">Planes de Remediación</h1>
+<div class="space-y-6">
 
-  {% if plans_by_proj %}
-  {% for project, plans in plans_by_proj.items() %}
-  <div class="bg-white rounded-lg shadow p-5">
-    <h2 class="text-lg font-semibold text-navy mb-3">
-      <a href="/projects/{{ project.uuid }}" class="hover:underline">{{ project.name }}</a>
-    </h2>
-    <div class="space-y-2">
-      {% for plan in plans %}
-      <div class="flex items-center justify-between border rounded px-4 py-3 hover:bg-gray-50">
-        <div>
-          <span class="font-medium">{{ plan.name }}</span>
-          {% if plan.description %}
-          <span class="text-gray-400 text-sm ml-2">{{ plan.description }}</span>
-          {% endif %}
-          <span class="text-xs text-gray-400 ml-3">Creado: {{ plan.created_at.strftime('%d/%m/%Y') }}</span>
-        </div>
-        <div class="flex gap-2">
-          <a href="/remediation/{{ plan.id }}"
-             class="text-blue-600 hover:underline text-sm">Ver plan →</a>
-          <form method="post" action="/api/v1/remediation/plans/{{ plan.id }}/suggest"
-                onsubmit="return confirm('¿Generar sugerencias automáticas para este plan?')">
-            <button type="submit"
-                    class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200">
+  <div>
+    <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Remediación</p>
+    <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Planes de remediación</h1>
+  </div>
+
+  {% if groups %}
+  <div class="space-y-4">
+    {% for group in groups %}
+    {% set project = group.project %}
+    {% set plans = group.plans %}
+    <div class="rounded-lg border border-line bg-surface p-5">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-3">
+        <a href="/projects/{{ project.uuid }}" class="hover:text-signal transition-colors">{{ project.name }}</a>
+      </h2>
+      <div class="space-y-2">
+        {% for plan in plans %}
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface2 px-4 py-3">
+          <div class="text-sm">
+            <span class="font-medium text-slate-200">{{ plan.name }}</span>
+            {% if plan.description %}
+            <span class="text-slate-500 ml-2">{{ plan.description }}</span>
+            {% endif %}
+            <span class="text-xs text-slate-500 font-mono ml-3">Creado: {{ plan.created_at.strftime('%d/%m/%Y') }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="/remediation/{{ plan.id }}"
+               class="text-signal hover:underline text-xs font-medium">Ver plan →</a>
+            <button
+              hx-post="/api/v1/remediation/plans/{{ plan.id }}/suggest"
+              hx-swap="none"
+              hx-confirm="¿Generar sugerencias automáticas para este plan?"
+              hx-on::after-request="window.location.reload()"
+              class="inline-flex items-center gap-1 text-xs font-medium bg-medium/15 text-medium ring-1 ring-medium/30 px-2.5 py-1 rounded hover:bg-medium/25 transition-colors">
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/>
+              </svg>
               Sugerir tareas
             </button>
-          </form>
-          <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
-             class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">
-            Exportar .xlsx
-          </a>
+            <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
+               class="inline-flex items-center gap-1 text-xs font-medium bg-low/15 text-low ring-1 ring-low/30 px-2.5 py-1 rounded hover:bg-low/25 transition-colors">
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Exportar .xlsx
+            </a>
+          </div>
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
   {% else %}
-  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
-    <p>No hay planes de remediación creados.</p>
-    <p class="text-sm mt-2">Ve al detalle de un proyecto y crea un plan desde allí.</p>
+  <div class="rounded-lg border border-line bg-surface p-10 text-center">
+    <p class="text-lg font-display font-medium text-slate-200">Sin planes de remediación</p>
+    <p class="text-sm mt-2 text-slate-500">Ve al detalle de un proyecto y crea un plan desde allí.</p>
   </div>
   {% endif %}
 </div>

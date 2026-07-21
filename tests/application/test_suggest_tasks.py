@@ -57,7 +57,7 @@ def _task(t_id: int = 1, status: TaskStatus = TaskStatus.PENDING) -> Remediation
     return RemediationTask(
         id=t_id, plan_id=1, finding_id=1, title="Fix CVE-A",
         description=None, assignee=None, status=status,
-        priority_band=PriorityBand.IMMEDIATE, recommended_action="patch",
+        priority_band=PriorityBand.CRITICAL, recommended_action="patch",
         target_date=None, completed_at=None, notes=None,
         created_at=now, updated_at=now,
     )
@@ -69,14 +69,14 @@ class TestRemediationAdvisor:
     def test_kev_finding_gets_7_day_target(self) -> None:
         advisor = RemediationAdvisor()
         f = _finding(vuln_id="CVE-KEV")
-        score = PriorityScore(value=92.5, band=PriorityBand.IMMEDIATE, is_kev=True, breakdown={})
+        score = PriorityScore(value=92.5, band=PriorityBand.CRITICAL, is_kev=True, breakdown={})
         today = date(2026, 6, 25)
 
         result = advisor.suggest(f, is_in_kev=True, score=score, today=today)
 
         assert result["target_date"] == today + timedelta(days=7)
         assert "Explotación activa confirmada" in str(result["recommended_action"])
-        assert result["priority_band"] == PriorityBand.IMMEDIATE
+        assert result["priority_band"] == PriorityBand.CRITICAL
 
     def test_high_epss_gets_30_day_target(self) -> None:
         advisor = RemediationAdvisor(AdvisorConfig(epss_high_threshold=0.40))

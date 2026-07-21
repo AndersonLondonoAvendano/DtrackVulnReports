@@ -73,6 +73,11 @@ class SqliteKevRepository:
         if last_updated is None:
             return None
 
+        # SQLite no almacena timezone; normalizar a UTC aware para evitar TypeError
+        # al restar datetime.now(UTC) - last_updated en los routers.
+        if last_updated.tzinfo is None:
+            last_updated = last_updated.replace(tzinfo=UTC)
+
         return KevCatalogMeta(
             total_entries=total,
             catalog_updated_at=last_updated,

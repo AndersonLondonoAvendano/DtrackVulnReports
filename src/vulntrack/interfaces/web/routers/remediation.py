@@ -166,16 +166,16 @@ async def remediation_html(
     project_repo: Any = Depends(get_project_repo),  # noqa: B008
 ) -> Any:
     projects = await project_repo.list_all()
-    plans_by_proj = {}
+    groups = []
     for p in projects:
         plans = await repo.list_plans_by_project(p.uuid)
         if plans:
-            plans_by_proj[p] = plans
+            groups.append({"project": p, "plans": plans})
 
     return templates.TemplateResponse(
         request,
         "remediation/list.html",
-        {"titulo": "Planes de Remediación", "plans_by_proj": plans_by_proj},
+        {"titulo": "Planes de Remediación", "groups": groups},
     )
 
 
@@ -192,7 +192,7 @@ async def remediation_detail_html(
     return templates.TemplateResponse(
         request,
         "remediation/detail.html",
-        {"titulo": plan.name, "plan": plan, "tasks": tasks},
+        {"titulo": plan.name, "plan": plan, "tasks": tasks, "today": date.today()},
     )
 
 

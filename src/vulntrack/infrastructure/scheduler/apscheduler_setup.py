@@ -21,7 +21,9 @@ def get_scheduler() -> AsyncIOScheduler | None:
 
 
 async def _sync_portfolio_job() -> None:
-    logger.info("scheduler_job_start", job="sync_portfolio")
+    from vulntrack.logging_config import reenable_vulntrack_loggers
+    reenable_vulntrack_loggers()
+    logger.info("scheduler_job_start job=sync_portfolio")
     try:
         from vulntrack.application.sync.sync_portfolio import SyncPortfolioUseCase
         from vulntrack.infrastructure.dt.client import DtHttpClient
@@ -33,6 +35,9 @@ async def _sync_portfolio_job() -> None:
         )
         from vulntrack.infrastructure.persistence.repositories.snapshot_repo import (
             SqliteSnapshotRepository,
+        )
+        from vulntrack.infrastructure.persistence.repositories.app_settings_repo import (
+            SqliteAppSettingsRepository,
         )
         from vulntrack.config import get_settings
         import asyncio
@@ -48,21 +53,24 @@ async def _sync_portfolio_job() -> None:
                 project_repo=SqliteProjectRepository(session),
                 finding_repo=SqliteFindingRepository(session),
                 snapshot_repo=SqliteSnapshotRepository(session),
+                app_settings_repo=SqliteAppSettingsRepository(session),
             )
             result = await uc.execute()
+            await session.commit()
             logger.info(
-                "scheduler_job_done",
-                job="sync_portfolio",
-                synced=result.synced_projects,
-                failed=result.failed_projects,
-                duration=result.duration_seconds,
+                "scheduler_job_done job=sync_portfolio synced=%d failed=%d duration=%.1fs",
+                result.synced_projects,
+                result.failed_projects,
+                result.duration_seconds,
             )
     except Exception as exc:
-        logger.error("scheduler_job_error", job="sync_portfolio", error=str(exc))
+        logger.error("scheduler_job_error job=sync_portfolio error=%s", exc)
 
 
 async def _sync_kev_job() -> None:
-    logger.info("scheduler_job_start", job="sync_kev")
+    from vulntrack.logging_config import reenable_vulntrack_loggers
+    reenable_vulntrack_loggers()
+    logger.info("scheduler_job_start job=sync_kev")
     try:
         from vulntrack.application.sync.sync_kev import SyncKevUseCase
         from vulntrack.infrastructure.kev.cisa_kev_client import CisaKevClient
@@ -75,13 +83,12 @@ async def _sync_kev_job() -> None:
             )
             result = await uc.execute()
             logger.info(
-                "scheduler_job_done",
-                job="sync_kev",
-                entries=result.entries_synced,
-                catalog_date=str(result.catalog_date),
+                "scheduler_job_done job=sync_kev entries=%d catalog_date=%s",
+                result.entries_synced,
+                result.catalog_date,
             )
     except Exception as exc:
-        logger.error("scheduler_job_error", job="sync_kev", error=str(exc))
+        logger.error("scheduler_job_error job=sync_kev error=%s", exc)
 
 
 def setup_scheduler(app: FastAPI, settings: Settings) -> AsyncIOScheduler:
@@ -109,5 +116,5 @@ def setup_scheduler(app: FastAPI, settings: Settings) -> AsyncIOScheduler:
 
     scheduler.start()
     _scheduler = scheduler
-    logger.info("scheduler_started", jobs=len(scheduler.get_jobs()))
+    logger.info("scheduler_started jobs=%d", len(scheduler.get_jobs()))
     return scheduler

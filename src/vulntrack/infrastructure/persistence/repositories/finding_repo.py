@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vulntrack.domain.entities.finding import Finding
@@ -17,44 +18,45 @@ class SqliteFindingRepository:
     async def upsert_batch(self, findings: list[Finding]) -> None:
         now = datetime.now(UTC)
         for f in findings:
-            result = await self._session.execute(
-                select(FindingORM).where(FindingORM.dt_finding_uuid == f.dt_finding_uuid)
+            stmt = sqlite_insert(FindingORM).values(
+                project_uuid=f.project_uuid,
+                dt_finding_uuid=f.dt_finding_uuid,
+                component_name=f.component_name,
+                component_version=f.component_version,
+                component_group=f.component_group,
+                vuln_id=f.vuln_id,
+                vuln_source=f.vuln_source,
+                severity=f.severity.value,
+                cve_id=f.cve_id,
+                cvss_v3_base_score=f.cvss_v3_base_score,
+                epss_score=f.epss_score,
+                epss_percentile=f.epss_percentile,
+                attributed_on=f.attributed_on,
+                suppressed=f.suppressed,
+                last_synced_at=f.last_synced_at,
+                created_at=now,
+                updated_at=now,
             )
-            existing = result.scalar_one_or_none()
-            if existing is None:
-                row = FindingORM(
-                    project_uuid=f.project_uuid,
-                    dt_finding_uuid=f.dt_finding_uuid,
-                    component_name=f.component_name,
-                    component_version=f.component_version,
-                    component_group=f.component_group,
-                    vuln_id=f.vuln_id,
-                    vuln_source=f.vuln_source,
-                    severity=f.severity.value,
-                    cvss_v3_base_score=f.cvss_v3_base_score,
-                    epss_score=f.epss_score,
-                    epss_percentile=f.epss_percentile,
-                    attributed_on=f.attributed_on,
-                    suppressed=f.suppressed,
-                    last_synced_at=f.last_synced_at,
-                    created_at=now,
-                    updated_at=now,
-                )
-                self._session.add(row)
-            else:
-                existing.component_name = f.component_name
-                existing.component_version = f.component_version
-                existing.component_group = f.component_group
-                existing.vuln_id = f.vuln_id
-                existing.vuln_source = f.vuln_source
-                existing.severity = f.severity.value
-                existing.cvss_v3_base_score = f.cvss_v3_base_score
-                existing.epss_score = f.epss_score
-                existing.epss_percentile = f.epss_percentile
-                existing.attributed_on = f.attributed_on
-                existing.suppressed = f.suppressed
-                existing.last_synced_at = f.last_synced_at
-                existing.updated_at = now
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["project_uuid", "dt_finding_uuid"],
+                set_={
+                    "component_name": stmt.excluded.component_name,
+                    "component_version": stmt.excluded.component_version,
+                    "component_group": stmt.excluded.component_group,
+                    "vuln_id": stmt.excluded.vuln_id,
+                    "vuln_source": stmt.excluded.vuln_source,
+                    "severity": stmt.excluded.severity,
+                    "cve_id": stmt.excluded.cve_id,
+                    "cvss_v3_base_score": stmt.excluded.cvss_v3_base_score,
+                    "epss_score": stmt.excluded.epss_score,
+                    "epss_percentile": stmt.excluded.epss_percentile,
+                    "attributed_on": stmt.excluded.attributed_on,
+                    "suppressed": stmt.excluded.suppressed,
+                    "last_synced_at": stmt.excluded.last_synced_at,
+                    "updated_at": stmt.excluded.updated_at,
+                },
+            )
+            await self._session.execute(stmt)
 
     async def list_by_project(
         self, project_uuid: str, suppress_suppressed: bool = True
@@ -65,10 +67,17 @@ class SqliteFindingRepository:
         result = await self._session.execute(stmt)
         return [orm_to_finding(r) for r in result.scalars().all()]
 
-    async def list_all_active(self) -> list[Finding]:
-        result = await self._session.execute(
-            select(FindingORM).where(FindingORM.suppressed.is_(False))
-        )
+    async def list_all_active(
+        self,
+        min_cvss: float | None = None,
+        min_epss: float | None = None,
+    ) -> list[Finding]:
+        stmt = select(FindingORM).where(FindingORM.suppressed.is_(False))
+        if min_cvss is not None:
+            stmt = stmt.where(FindingORM.cvss_v3_base_score >= min_cvss)
+        if min_epss is not None:
+            stmt = stmt.where(FindingORM.epss_score >= min_epss)
+        result = await self._session.execute(stmt)
         return [orm_to_finding(r) for r in result.scalars().all()]
 
     async def get_new_in_range(self, date_from: date, date_to: date) -> list[Finding]:

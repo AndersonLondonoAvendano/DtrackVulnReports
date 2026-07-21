@@ -35,19 +35,18 @@ class Settings(BaseSettings):
     kev_stale_days: int = 7
 
     # ── Seguridad web ─────────────────────────────────────────────────────────
-    allowed_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]
+    # str para evitar que pydantic-settings intente json.loads() antes de
+    # que el validador tenga oportunidad de parsear la lista separada por comas.
+    allowed_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     # ── Aplicación ────────────────────────────────────────────────────────────
     debug: bool = False
     log_level: str = "INFO"
     app_version: str = "0.1.0"
-
-    @field_validator("allowed_origins", mode="before")
-    @classmethod
-    def parse_origins(cls, v: Any) -> list[str]:
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v  # type: ignore[return-value]
 
     @field_validator("log_level")
     @classmethod

@@ -65,7 +65,7 @@ class ProjectDetailQuery:
             [
                 PrioritizedFinding(
                     finding=f,
-                    score=self._svc.score(f, self._kev_matcher.is_in_kev(f.vuln_id)),
+                    score=self._svc.score(f, self._kev_matcher.is_in_kev(f.cve_id, f.vuln_id)),
                 )
                 for f in findings
             ],

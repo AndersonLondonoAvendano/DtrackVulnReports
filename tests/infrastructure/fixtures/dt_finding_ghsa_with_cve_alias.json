@@ -1,0 +1,136 @@
+[
+  {
+    "component": {
+      "uuid": "5d408ae0-4f6e-4ff0-92e8-1a0e64875f85",
+      "name": "adm-zip",
+      "version": "0.4.7",
+      "purl": "pkg:npm/adm-zip@0.4.7",
+      "project": "2119d351-320a-4565-b2bb-20e07073edc7",
+      "latestVersion": "0.5.17"
+    },
+    "vulnerability": {
+      "uuid": "96b20582-390f-4262-8265-1a0147b21289",
+      "source": "GITHUB",
+      "vulnId": "GHSA-3v6h-hqm4-2rg6",
+      "title": "Arbitrary File Write in adm-zip",
+      "cvssV3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+      "severity": "MEDIUM",
+      "severityRank": 2,
+      "cwes": [{"cweId": 22, "name": "Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"}],
+      "published": 1532711234000,
+      "aliases": [
+        {"cveId": "CVE-2018-1002204", "ghsaId": "GHSA-3v6h-hqm4-2rg6"}
+      ]
+    },
+    "analysis": {
+      "state": "EXPLOITABLE",
+      "isSuppressed": false
+    },
+    "attribution": {
+      "analyzerIdentity": "INTERNAL_ANALYZER",
+      "attributedOn": 1776787153029
+    },
+    "matrix": "2119d351-320a-4565-b2bb-20e07073edc7:5d408ae0-4f6e-4ff0-92e8-1a0e64875f85:96b20582-390f-4262-8265-1a0147b21289"
+  },
+  {
+    "component": {
+      "uuid": "9e7b67ee-727d-4d4a-ba31-b13769b65d78",
+      "name": "body-parser",
+      "version": "1.9.0",
+      "purl": "pkg:npm/body-parser@1.9.0",
+      "project": "2119d351-320a-4565-b2bb-20e07073edc7",
+      "latestVersion": "2.3.0"
+    },
+    "vulnerability": {
+      "uuid": "aafefadc-56ab-45e3-94cb-cf27434ea174",
+      "source": "GITHUB",
+      "vulnId": "GHSA-qwcr-r2fm-qrc7",
+      "title": "body-parser vulnerable to denial of service when url encoding is enabled",
+      "cvssV3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cvssV4Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+      "severity": "HIGH",
+      "severityRank": 1,
+      "cwes": [{"cweId": 405, "name": "Asymmetric Resource Consumption (Amplification)"}],
+      "published": 1725983559000,
+      "aliases": [
+        {"cveId": "CVE-2024-45590", "ghsaId": "GHSA-qwcr-r2fm-qrc7"}
+      ]
+    },
+    "analysis": {
+      "state": "EXPLOITABLE",
+      "isSuppressed": false
+    },
+    "attribution": {
+      "analyzerIdentity": "INTERNAL_ANALYZER",
+      "attributedOn": 1776787154051
+    },
+    "matrix": "2119d351-320a-4565-b2bb-20e07073edc7:9e7b67ee-727d-4d4a-ba31-b13769b65d78:aafefadc-56ab-45e3-94cb-cf27434ea174"
+  },
+  {
+    "component": {
+      "uuid": "7aed5660-f5d2-4c1b-92b5-2977881d2b66",
+      "name": "dustjs-linkedin",
+      "version": "2.5.0",
+      "purl": "pkg:npm/dustjs-linkedin@2.5.0",
+      "project": "2119d351-320a-4565-b2bb-20e07073edc7",
+      "latestVersion": "3.0.1"
+    },
+    "vulnerability": {
+      "uuid": "7e0165b8-8dc3-485b-9e95-c9cc51c84a4b",
+      "source": "GITHUB",
+      "vulnId": "GHSA-c6rp-wrp9-qr4q",
+      "title": "dustjs-linkedin vulnerable to Prototype Pollution",
+      "cvssV3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "severity": "HIGH",
+      "severityRank": 1,
+      "cwes": [{"cweId": 1321, "name": "Improperly Controlled Modification of Object Prototype Attributes ('Prototype Pollution')"}],
+      "published": 1671658215000,
+      "aliases": [
+        {"cveId": "CVE-2021-4264", "ghsaId": "GHSA-c6rp-wrp9-qr4q"}
+      ]
+    },
+    "analysis": {
+      "state": "EXPLOITABLE",
+      "isSuppressed": false
+    },
+    "attribution": {
+      "analyzerIdentity": "INTERNAL_ANALYZER",
+      "attributedOn": 1776787155769
+    },
+    "matrix": "2119d351-320a-4565-b2bb-20e07073edc7:7aed5660-f5d2-4c1b-92b5-2977881d2b66:7e0165b8-8dc3-485b-9e95-c9cc51c84a4b"
+  },
+  {
+    "component": {
+      "uuid": "06922175-83c1-4a25-9ab9-d1d9d95853c8",
+      "name": "logback-core",
+      "group": "ch.qos.logback",
+      "version": "1.5.18",
+      "purl": "pkg:maven/ch.qos.logback/logback-core@1.5.18?type=jar",
+      "project": "ce2cf25e-25ef-44d5-b3e6-4e1ef708b190",
+      "latestVersion": "1.5.36"
+    },
+    "vulnerability": {
+      "uuid": "c0c18c2b-0684-4f82-85b0-4c2cdeb86c88",
+      "source": "GITHUB",
+      "vulnId": "GHSA-25qh-j22f-pwp8",
+      "title": "QOS.CH logback-core is vulnerable to Arbitrary Code Execution through file processing",
+      "cvssV4Vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:P/VC:H/VI:L/VA:L/SC:H/SI:L/SA:L",
+      "severity": "MEDIUM",
+      "severityRank": 2,
+      "cwes": [{"cweId": 20, "name": "Improper Input Validation"}],
+      "published": 1759311024000,
+      "aliases": [
+        {"cveId": "CVE-2025-11226", "ghsaId": "GHSA-25qh-j22f-pwp8"}
+      ]
+    },
+    "analysis": {
+      "state": "NOT_AFFECTED",
+      "isSuppressed": false
+    },
+    "attribution": {
+      "analyzerIdentity": "INTERNAL_ANALYZER",
+      "attributedOn": 1776868775743
+    },
+    "matrix": "ce2cf25e-25ef-44d5-b3e6-4e1ef708b190:06922175-83c1-4a25-9ab9-d1d9d95853c8:c0c18c2b-0684-4f82-85b0-4c2cdeb86c88"
+  }
+]

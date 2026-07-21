@@ -3,16 +3,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.metric_snapshot import MetricSnapshot, SnapshotSource
 from vulntrack.domain.entities.project import Project
+from vulntrack.domain.ports.app_settings_repository import AppSettingsRepository
 from vulntrack.domain.ports.dt_client import DtClientPort
 from vulntrack.domain.ports.finding_repository import FindingRepository
 from vulntrack.domain.ports.project_repository import ProjectRepository
 from vulntrack.domain.ports.snapshot_repository import SnapshotRepository
+from vulntrack.domain.services.cve_normalizer import extract_cve
+from vulntrack.domain.services.cvss_parser import parse_cvss_v3_base_score
 from vulntrack.domain.value_objects.severity import Severity
 from vulntrack.infrastructure.dt.response_models import (
     DtFinding,
@@ -42,11 +46,13 @@ class SyncPortfolioUseCase:
         project_repo: ProjectRepository,
         finding_repo: FindingRepository,
         snapshot_repo: SnapshotRepository,
+        app_settings_repo: AppSettingsRepository | None = None,
     ) -> None:
         self._dt = dt_client
         self._project_repo = project_repo
         self._finding_repo = finding_repo
         self._snapshot_repo = snapshot_repo
+        self._app_settings_repo = app_settings_repo
 
     async def execute(self) -> SyncResult:
         result = SyncResult()
@@ -89,6 +95,13 @@ class SyncPortfolioUseCase:
 
         await asyncio.gather(*[sync_one(p) for p in dt_projects])
         result.duration_seconds = (datetime.now(UTC) - started_at).total_seconds()
+
+        if self._app_settings_repo is not None:
+            try:
+                await self._app_settings_repo.update(last_sync_at=started_at)
+            except Exception as exc:
+                logger.warning("sync_last_sync_at_update_failed error=%s", exc)
+
         logger.info(
             "sync_portfolio_done synced=%d failed=%d duration=%.1fs",
             result.synced_projects,
@@ -136,14 +149,41 @@ class SyncPortfolioUseCase:
                     await self._snapshot_repo.upsert(hist_snap)
                     result.new_snapshots += 1
 
-        # Fetch and upsert findings
-        raw_findings: list[object] = await self._dt.get_project_findings(dt_proj.uuid)
-        findings = [
-            _dt_finding_to_domain(dt_proj.uuid, f, now)
-            for f in [DtFinding.model_validate(rf) for rf in raw_findings]
-        ]
-        if findings:
-            await self._finding_repo.upsert_batch(findings)
+        # Fetch and upsert findings — fallo tolerado: proyecto y métricas ya persistidos
+        try:
+            raw_findings: list[object] = await self._dt.get_project_findings(dt_proj.uuid)
+            findings = [
+                _dt_finding_to_domain(dt_proj.uuid, f, now)
+                for f in [DtFinding.model_validate(rf) for rf in raw_findings]
+            ]
+            if findings:
+                await self._finding_repo.upsert_batch(findings)
+            elif metrics.critical + metrics.high + metrics.medium + metrics.low > 0:
+                logger.warning(
+                    "sync_findings_empty_but_metrics_nonzero project=%s "
+                    "critical=%d high=%d medium=%d low=%d",
+                    dt_proj.name,
+                    metrics.critical,
+                    metrics.high,
+                    metrics.medium,
+                    metrics.low,
+                )
+        except Exception as findings_exc:
+            import httpx as _httpx
+            if isinstance(findings_exc, _httpx.HTTPStatusError):
+                logger.warning(
+                    "sync_findings_http_error project=%s status=%d url=%s",
+                    dt_proj.name,
+                    findings_exc.response.status_code,
+                    str(findings_exc.request.url),
+                )
+            else:
+                logger.warning(
+                    "sync_findings_failed project=%s error_type=%s error=%s",
+                    dt_proj.name,
+                    type(findings_exc).__name__,
+                    findings_exc,
+                )
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -211,12 +251,27 @@ def _dt_finding_to_domain(
     sev_str = f.vulnerability.severity.upper()
     sev = _SEV_MAP.get(sev_str, Severity.UNASSIGNED)
     attributed_on = f.attribution.attributed_on if f.attribution else None
-    finding_uuid = (
-        f.attribution.finding_uuid
-        if f.attribution and f.attribution.finding_uuid
-        else f.component.uuid or f.vulnerability.vuln_id
-    )
+    if f.attribution and f.attribution.finding_uuid:
+        finding_uuid = f.attribution.finding_uuid
+    else:
+        # Genera UUID5 determinista e incluye project_uuid para evitar colisiones
+        # entre proyectos que comparten el mismo componente en DT.
+        key = f"{project_uuid}:{f.component.uuid or ''}:{f.vulnerability.vuln_id}"
+        finding_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, key))
     suppressed = f.analysis.suppressed if f.analysis else False
+
+    # CVE canónico extraído de aliases (GHSA→CVE); None si no hay CVE.
+    cve_id = extract_cve(
+        vuln_id=f.vulnerability.vuln_id,
+        source=f.vulnerability.source,
+        aliases=f.vulnerability.aliases,
+    )
+
+    # CVSS: producción devuelve cvssV3BaseScore directamente.
+    # Instancias sin ese campo (v4.14 pruebas) usan el vector como fallback.
+    cvss_score = f.vulnerability.cvss_v3_base_score
+    if cvss_score is None and f.vulnerability.cvss_v3_vector:
+        cvss_score = parse_cvss_v3_base_score(f.vulnerability.cvss_v3_vector)
 
     return Finding(
         id=0,
@@ -228,7 +283,8 @@ def _dt_finding_to_domain(
         vuln_id=f.vulnerability.vuln_id,
         vuln_source=f.vulnerability.source,
         severity=sev,
-        cvss_v3_base_score=f.vulnerability.cvss_v3_base_score,
+        cve_id=cve_id,
+        cvss_v3_base_score=cvss_score,
         epss_score=f.vulnerability.epss_score,
         epss_percentile=f.vulnerability.epss_percentile,
         attributed_on=attributed_on,

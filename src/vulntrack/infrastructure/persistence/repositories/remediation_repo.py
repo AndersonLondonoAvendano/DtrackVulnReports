@@ -97,3 +97,7 @@ class SqliteRemediationRepository:
             .order_by(RemediationTaskORM.created_at.asc())
         )
         return [orm_to_task(r) for r in result.scalars().all()]
+
+    async def list_all_tasks(self) -> list[RemediationTask]:
+        result = await self._session.execute(select(RemediationTaskORM))
+        return [orm_to_task(r) for r in result.scalars().all()]

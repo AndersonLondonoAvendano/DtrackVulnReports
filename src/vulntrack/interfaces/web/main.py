@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=settings.allowed_origins_list,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
@@ -101,6 +101,7 @@ def create_app() -> FastAPI:
 
 def _register_routers(app: FastAPI) -> None:
     from vulntrack.interfaces.web.routers.sync import router as sync_router
+    from vulntrack.interfaces.web.routers.sync import html_router as sync_html_router
     from vulntrack.interfaces.web.routers.dashboard import router as dashboard_router
     from vulntrack.interfaces.web.routers.projects import router as projects_router
     from vulntrack.interfaces.web.routers.projects import html_router as projects_html_router
@@ -116,6 +117,7 @@ def _register_routers(app: FastAPI) -> None:
     from vulntrack.interfaces.web.routers.config import html_router as config_html_router
 
     app.include_router(sync_router)
+    app.include_router(sync_html_router)
     app.include_router(dashboard_router)
     app.include_router(projects_router)
     app.include_router(projects_html_router)

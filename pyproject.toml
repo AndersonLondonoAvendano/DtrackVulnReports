@@ -23,6 +23,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "pillow>=10.4.0",
     "weasyprint>=62.0",
+    "cvss>=3.2",
 ]
 
 [project.optional-dependencies]

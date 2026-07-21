@@ -133,6 +133,7 @@ async def get_dashboard_query(
     project_repo: SqliteProjectRepository = Depends(get_project_repo),  # noqa: B008
     finding_repo: SqliteFindingRepository = Depends(get_finding_repo),  # noqa: B008
     kev_repo: SqliteKevRepository = Depends(get_kev_repo),  # noqa: B008
+    remediation_repo: SqliteRemediationRepository = Depends(get_remediation_repo),  # noqa: B008
     app_settings_repo: SqliteAppSettingsRepository = Depends(get_app_settings_repo),  # noqa: B008
 ) -> DashboardQuery:
     app_cfg = await app_settings_repo.get()
@@ -140,6 +141,7 @@ async def get_dashboard_query(
         project_repo=project_repo,
         finding_repo=finding_repo,
         kev_repo=kev_repo,
+        remediation_repo=remediation_repo,
         last_sync_at=app_cfg.last_sync_at,
     )
 

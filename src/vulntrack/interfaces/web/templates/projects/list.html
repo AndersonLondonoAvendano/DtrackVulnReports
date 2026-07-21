@@ -1,53 +1,74 @@
 {% extends "base.html" %}
-{% block title %}Proyectos — VulnTrack{% endblock %}
+{% block title %}Proyectos — VulnTrack Reports{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-navy">Proyectos</h1>
-    <span class="text-sm text-gray-500">{{ projects|length }} proyecto(s)</span>
+<div class="space-y-6">
+
+  <!-- Encabezado -->
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Portafolio</p>
+      <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Proyectos</h1>
+    </div>
+    <span class="font-mono text-xs text-slate-500">{{ projects|length }} proyecto{{ 's' if projects|length != 1 else '' }}</span>
   </div>
 
   <!-- Filtro de búsqueda -->
-  <form method="get" class="flex gap-2">
-    <input type="text" name="search" value="{{ search or '' }}"
-           placeholder="Buscar proyecto…"
-           class="border rounded px-3 py-1.5 text-sm flex-1 max-w-xs focus:outline-none focus:ring-2 focus:ring-navy">
-    <button type="submit" class="bg-navy text-white text-sm px-4 py-1.5 rounded hover:bg-blue-800">
+  <form method="get" class="flex flex-wrap items-center gap-2">
+    <div class="relative flex-1 max-w-xs">
+      <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke-linecap="round"/>
+        <path d="M20 20l-3.5-3.5" stroke-linecap="round"/>
+      </svg>
+      <input type="text" name="search" value="{{ search or '' }}"
+             placeholder="Buscar proyecto…"
+             class="w-full rounded-md border border-line bg-surface pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+    </div>
+    <button type="submit" class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors">
       Buscar
     </button>
     {% if search %}
-    <a href="/projects" class="text-sm text-gray-500 px-3 py-1.5 border rounded hover:bg-gray-100">Limpiar</a>
+    <a href="/projects" class="text-sm text-slate-400 px-3 py-2 border border-line rounded-md hover:border-signal/50 hover:text-slate-200 transition-colors">Limpiar</a>
     {% endif %}
   </form>
 
   {% if projects %}
-  <div class="bg-white rounded-lg shadow overflow-hidden">
+  <div class="rounded-lg border border-line bg-surface overflow-hidden">
     <table class="w-full text-sm">
       <thead>
         <tr class="table-header">
-          <th class="px-4 py-3 text-left">
+          <th class="px-4 py-3 text-left font-medium">
             <a href="?sort=name&order={{ 'desc' if sort=='name' and order=='asc' else 'asc' }}&search={{ search or '' }}"
-               class="hover:text-yellow-300">Nombre ↕</a>
+               class="inline-flex items-center gap-1 hover:text-signal transition-colors">
+              Nombre
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
           </th>
-          <th class="px-4 py-3 text-left">Versión</th>
-          <th class="px-4 py-3 text-left">Última sync</th>
-          <th class="px-4 py-3 text-right">Acciones</th>
+          <th class="px-4 py-3 text-left font-medium">Versión</th>
+          <th class="px-4 py-3 text-left font-medium">Última sync</th>
+          <th class="px-4 py-3 text-right font-medium">Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for p in projects %}
-        <tr class="border-b hover:bg-gray-50">
+        <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
           <td class="px-4 py-3 font-medium">
-            <a href="/projects/{{ p.uuid }}" class="text-navy hover:underline">{{ p.name }}</a>
+            <a href="/projects/{{ p.uuid }}" class="text-slate-100 hover:text-signal transition-colors">{{ p.name }}</a>
           </td>
-          <td class="px-4 py-3 text-gray-500">{{ p.version or '—' }}</td>
-          <td class="px-4 py-3 text-gray-500">
+          <td class="px-4 py-3 text-slate-400 font-mono text-xs">{{ p.version or '—' }}</td>
+          <td class="px-4 py-3 text-slate-400 font-mono text-xs">
             {{ p.last_synced_at.strftime('%d/%m/%Y %H:%M') if p.last_synced_at else '—' }}
           </td>
           <td class="px-4 py-3 text-right">
             <a href="/projects/{{ p.uuid }}"
-               class="text-blue-600 hover:underline text-xs">Ver detalle →</a>
+               class="inline-flex items-center gap-1 text-signal hover:underline text-xs font-medium">
+              Ver detalle
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
           </td>
         </tr>
         {% endfor %}
@@ -55,8 +76,15 @@
     </table>
   </div>
   {% else %}
-  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
-    <p>No se encontraron proyectos{% if search %} con el término "{{ search }}"{% endif %}.</p>
+  <div class="rounded-lg border border-line bg-surface p-10 text-center">
+    <p class="text-lg font-display font-medium text-slate-200">Sin proyectos</p>
+    <p class="text-sm mt-2 text-slate-500">
+      {% if search %}
+      No se encontraron proyectos con el término "{{ search }}".
+      {% else %}
+      Configura la conexión en <a href="/settings" class="text-signal hover:underline">Configuración</a> y ejecuta la primera sincronización.
+      {% endif %}
+    </p>
   </div>
   {% endif %}
 </div>

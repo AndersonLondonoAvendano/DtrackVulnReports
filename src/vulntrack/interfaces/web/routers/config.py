@@ -68,9 +68,28 @@ async def update_config(
 async def test_connection(
     dt_client: Any = Depends(get_dt_client),  # noqa: B008
 ) -> TestConnectionOut:
+    import httpx
+
     try:
         version = await dt_client.get_server_version()
         return TestConnectionOut(ok=True, dt_version=version)
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status == 404:
+            msg = (
+                f"Endpoint no encontrado (HTTP 404). "
+                f"Verifique que DT_BASE_URL apunta al API server y que /api/v1/about existe."
+            )
+        elif status in (401, 403):
+            msg = f"Sin autorización (HTTP {status}). Verifique DT_API_KEY y los permisos del team."
+        else:
+            msg = f"Error HTTP {status} al contactar {exc.request.url}."
+        return TestConnectionOut(ok=False, error=msg)
+    except (httpx.ConnectError, httpx.TimeoutException) as exc:
+        return TestConnectionOut(
+            ok=False,
+            error=f"No se puede conectar al host ({type(exc).__name__}). Verifique DT_BASE_URL.",
+        )
     except Exception as exc:
         return TestConnectionOut(ok=False, error=str(exc))
 

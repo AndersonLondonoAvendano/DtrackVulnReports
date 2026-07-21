@@ -46,7 +46,16 @@ def _kev(cve_id: str) -> KevEntry:
 class TestPrioritizedFindingsQuery:
     def _make_query(self, findings: list[Finding], kev_ids: list[str] = []) -> PrioritizedFindingsQuery:
         repo = AsyncMock()
-        repo.list_all_active.return_value = findings
+
+        async def _list_all_active(min_cvss: float | None = None, min_epss: float | None = None) -> list[Finding]:
+            result = findings
+            if min_cvss is not None:
+                result = [f for f in result if (f.cvss_v3_base_score or 0.0) >= min_cvss]
+            if min_epss is not None:
+                result = [f for f in result if (f.epss_score or 0.0) >= min_epss]
+            return result
+
+        repo.list_all_active.side_effect = _list_all_active
         matcher = KevMatcher([_kev(c) for c in kev_ids])
         return PrioritizedFindingsQuery(repo, matcher)
 

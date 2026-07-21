@@ -7,9 +7,11 @@ from typing import Protocol
 
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.project import Project
+from vulntrack.domain.entities.remediation import TaskStatus
 from vulntrack.domain.ports.finding_repository import FindingRepository
 from vulntrack.domain.ports.kev_repository import KevRepository
 from vulntrack.domain.ports.project_repository import ProjectRepository
+from vulntrack.domain.ports.remediation_repository import RemediationRepository
 from vulntrack.domain.value_objects.severity import Severity
 
 
@@ -43,11 +45,13 @@ class DashboardQuery:
         project_repo: ProjectRepository,
         finding_repo: FindingRepository,
         kev_repo: KevRepository,
+        remediation_repo: RemediationRepository,
         last_sync_at: datetime | None = None,
     ) -> None:
         self._project_repo = project_repo
         self._finding_repo = finding_repo
         self._kev_repo = kev_repo
+        self._remediation_repo = remediation_repo
         self._last_sync_at = last_sync_at
 
     async def execute(self) -> DashboardData:
@@ -77,10 +81,19 @@ class DashboardQuery:
         }
         proyectos_con_criticas = len(projects_with_critical)
 
-        # KEV hits count: findings whose vuln_id is in KEV
+        # KEV hits count: findings cuyo CVE canónico (o vuln_id como fallback) está en KEV
         all_kev = await self._kev_repo.list_all()
         kev_ids = {e.cve_id.upper() for e in all_kev}
-        kev_hits_count = sum(1 for f in findings if f.vuln_id.upper() in kev_ids)
+        kev_hits_count = sum(1 for f in findings if (f.cve_id or f.vuln_id).upper() in kev_ids)
+
+        # Resumen de tareas de remediación (todos los planes, todos los proyectos)
+        tasks = await self._remediation_repo.list_all_tasks()
+        tasks_summary = TaskSummary(
+            total=len(tasks),
+            pending=sum(1 for t in tasks if t.status == TaskStatus.PENDING),
+            in_progress=sum(1 for t in tasks if t.status == TaskStatus.IN_PROGRESS),
+            completed=sum(1 for t in tasks if t.status == TaskStatus.COMPLETED),
+        )
 
         return DashboardData(
             total_vigentes=total_vigentes,
@@ -90,4 +103,5 @@ class DashboardQuery:
             last_sync_at=self._last_sync_at,
             kev_hits_count=kev_hits_count,
             total_proyectos=len(projects),
+            tasks_summary=tasks_summary,
         )

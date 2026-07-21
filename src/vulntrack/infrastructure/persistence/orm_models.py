@@ -72,10 +72,11 @@ class MetricSnapshotORM(Base):
 class FindingORM(Base):
     __tablename__ = "findings"
     __table_args__ = (
-        UniqueConstraint("dt_finding_uuid", name="uq_findings_dt_uuid"),
+        UniqueConstraint("project_uuid", "dt_finding_uuid", name="uq_findings_project_dt_uuid"),
         Index("ix_findings_project_severity", "project_uuid", "severity"),
         Index("ix_findings_vuln_id", "vuln_id"),
         Index("ix_findings_attributed_on", "attributed_on"),
+        Index("ix_findings_cve_id", "cve_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -89,6 +90,7 @@ class FindingORM(Base):
     vuln_id: Mapped[str] = mapped_column(String(100), nullable=False)
     vuln_source: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    cve_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cvss_v3_base_score: Mapped[float | None] = mapped_column(Float)
     epss_score: Mapped[float | None] = mapped_column(Float)
     epss_percentile: Mapped[float | None] = mapped_column(Float)

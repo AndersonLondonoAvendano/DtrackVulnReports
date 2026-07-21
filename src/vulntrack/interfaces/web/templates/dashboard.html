@@ -4,44 +4,39 @@
 {% block content %}
 <div class="space-y-6">
 
-  <!-- Encabezado + botón sync -->
-  <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-navy">Dashboard del Portafolio</h1>
+  <!-- Encabezado + estado de sync -->
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Portafolio</p>
+      <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Panorama de riesgo</h1>
+    </div>
     <div class="flex items-center gap-3">
-      <div id="sync-status"
-           hx-get="/api/v1/sync/status"
-           hx-trigger="every 30s"
-           hx-swap="outerHTML"
-           class="text-sm text-gray-500 flex items-center gap-2">
-        {% if data and data.last_sync_at %}
-          <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-          Última sync: {{ data.last_sync_at.strftime('%d/%m/%Y %H:%M') }}
-        {% else %}
-          <span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
-          Sin sincronización
-        {% endif %}
-      </div>
+      {% include "partials/sync_status.html" with context %}
       <button
         hx-post="/api/v1/sync/run"
         hx-swap="none"
-        hx-on::after-request="document.getElementById('sync-toast').classList.remove('hidden')"
-        class="bg-navy text-white text-sm px-4 py-2 rounded hover:bg-blue-800 transition-colors">
-        ↺ Sincronizar ahora
+        hx-on::after-request="document.getElementById('sync-toast').classList.remove('hidden'); htmx.ajax('GET', '/partials/sync-status', {target: '#sync-status', swap: 'outerHTML'})"
+        class="inline-flex items-center gap-2 bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M4 4v5h5M20 20v-5h-5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4.5 15a8 8 0 0014.9 2.5M19.5 9A8 8 0 004.6 6.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Sincronizar ahora
       </button>
     </div>
   </div>
 
   <div id="sync-toast"
-       class="hidden bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-2 rounded">
+       class="hidden rounded-md border border-signal/30 bg-signal/10 text-signal text-sm px-4 py-2">
     Sincronización iniciada en segundo plano…
   </div>
 
   {% if not data or data.total_vigentes == 0 and data.total_proyectos == 0 %}
   <!-- Estado vacío -->
-  <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
-    <p class="text-lg font-medium">Sin datos</p>
-    <p class="text-sm mt-2">Configura la conexión en
-      <a href="/settings" class="text-blue-600 underline">Configuración</a>
+  <div class="rounded-lg border border-line bg-surface p-10 text-center">
+    <p class="text-lg font-display font-medium text-slate-200">Sin datos todavía</p>
+    <p class="text-sm mt-2 text-slate-500">Configura la conexión en
+      <a href="/settings" class="text-signal hover:underline">Configuración</a>
       y ejecuta la primera sincronización.
     </p>
   </div>
@@ -49,91 +44,135 @@
 
   <!-- Banner KPIs -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-critical">
-      <div class="text-3xl font-bold text-critical">{{ data.total_vigentes }}</div>
-      <div class="text-sm text-gray-600 mt-1">Vulnerabilidades vigentes</div>
+    <div class="relative overflow-hidden rounded-lg border border-line bg-surface p-5">
+      <div class="absolute inset-x-0 top-0 h-0.5 bg-critical"></div>
+      <div class="font-mono text-3xl font-semibold tabular-nums text-slate-50">{{ data.total_vigentes }}</div>
+      <div class="text-xs uppercase tracking-wide text-slate-400 mt-2">Vulnerabilidades vigentes</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-high">
-      <div class="text-3xl font-bold text-high">{{ data.proyectos_con_criticas }}</div>
-      <div class="text-sm text-gray-600 mt-1">Proyectos con críticas</div>
+    <div class="relative overflow-hidden rounded-lg border border-line bg-surface p-5">
+      <div class="absolute inset-x-0 top-0 h-0.5 bg-high"></div>
+      <div class="font-mono text-3xl font-semibold tabular-nums text-slate-50">{{ data.proyectos_con_criticas }}</div>
+      <div class="text-xs uppercase tracking-wide text-slate-400 mt-2">Proyectos con críticas</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-red-700">
-      <div class="text-3xl font-bold text-red-700">{{ data.kev_hits_count }}</div>
-      <div class="text-sm text-gray-600 mt-1">Vulnerabilidades en KEV</div>
+    <div class="relative overflow-hidden rounded-lg border border-line bg-surface p-5">
+      <div class="absolute inset-x-0 top-0 h-0.5 bg-critical"></div>
+      <div class="font-mono text-3xl font-semibold tabular-nums text-slate-50">{{ data.kev_hits_count }}</div>
+      <div class="text-xs uppercase tracking-wide text-slate-400 mt-2">En catálogo KEV</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-low">
-      <div class="text-3xl font-bold text-low">{{ data.proyectos_en_cero }}</div>
-      <div class="text-sm text-gray-600 mt-1">Proyectos en cero</div>
+    <div class="relative overflow-hidden rounded-lg border border-line bg-surface p-5">
+      <div class="absolute inset-x-0 top-0 h-0.5 bg-low"></div>
+      <div class="font-mono text-3xl font-semibold tabular-nums text-slate-50">{{ data.proyectos_en_cero }}</div>
+      <div class="text-xs uppercase tracking-wide text-slate-400 mt-2">Proyectos en cero</div>
     </div>
   </div>
 
-  <!-- Distribución por severidad + resumen tareas -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="text-lg font-semibold text-navy mb-4">Distribución por severidad</h2>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="table-header">
-            <th class="px-4 py-2 text-left rounded-tl">Severidad</th>
-            <th class="px-4 py-2 text-right rounded-tr">Hallazgos</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for sev_key, label in [('CRITICAL','Crítica'),('HIGH','Alta'),('MEDIUM','Media'),('LOW','Baja'),('UNASSIGNED','Sin asignar')] %}
-          <tr class="border-b">
-            <td class="px-4 py-2">
-              <span class="sev-{{ sev_key|lower }} px-2 py-0.5 rounded text-xs font-medium">{{ label }}</span>
-            </td>
-            <td class="px-4 py-2 text-right font-semibold">
-              {{ data.vigentes_por_severidad.get(sev_key, 0) }}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- Distribución por severidad: barra de amenaza segmentada -->
+  <div class="rounded-lg border border-line bg-surface p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Distribución por severidad</h2>
+      <span class="font-mono text-xs text-slate-500">{{ data.total_vigentes }} hallazgo(s)</span>
     </div>
+    {% if data.total_vigentes > 0 %}
+    <div class="flex h-3 w-full overflow-hidden rounded-full bg-ink ring-1 ring-line">
+      {% for sev_key, label, bar_class in [
+        ('CRITICAL','Crítica','bg-critical'), ('HIGH','Alta','bg-high'),
+        ('MEDIUM','Media','bg-medium'), ('LOW','Baja','bg-low'),
+        ('UNASSIGNED','Sin asignar','bg-unassigned')
+      ] %}
+        {% set count = data.vigentes_por_severidad.get(sev_key, 0) %}
+        {% if count > 0 %}
+        <div class="{{ bar_class }} h-full first:rounded-l-full last:rounded-r-full"
+             style="width: {{ (count / data.total_vigentes * 100)|round(2) }}%"
+             title="{{ label }}: {{ count }}"></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+      {% for sev_key, label, dot_class in [
+        ('CRITICAL','Crítica','bg-critical'), ('HIGH','Alta','bg-high'),
+        ('MEDIUM','Media','bg-medium'), ('LOW','Baja','bg-low'),
+        ('UNASSIGNED','Sin asignar','bg-unassigned')
+      ] %}
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <span class="h-2 w-2 rounded-full {{ dot_class }}"></span>
+        <span>{{ label }}</span>
+        <span class="font-mono text-slate-200">{{ data.vigentes_por_severidad.get(sev_key, 0) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-500">Sin hallazgos vigentes.</p>
+    {% endif %}
+  </div>
 
-    <div class="bg-white rounded-lg shadow p-5">
-      <h2 class="text-lg font-semibold text-navy mb-4">Resumen de remediación</h2>
+  <!-- Resumen de remediación + accesos rápidos -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-lg border border-line bg-surface p-5">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-4">Resumen de remediación</h2>
       <div class="grid grid-cols-2 gap-4">
-        <div class="text-center p-4 bg-yellow-50 rounded">
-          <div class="text-2xl font-bold text-yellow-600">{{ data.tasks_summary.pending }}</div>
-          <div class="text-xs text-gray-600 mt-1">Pendientes</div>
+        <div class="text-center p-4 rounded-md bg-surface2 border border-line">
+          <div class="font-mono text-2xl font-semibold text-medium">{{ data.tasks_summary.pending }}</div>
+          <div class="text-xs text-slate-400 mt-1">Pendientes</div>
         </div>
-        <div class="text-center p-4 bg-blue-50 rounded">
-          <div class="text-2xl font-bold text-blue-600">{{ data.tasks_summary.in_progress }}</div>
-          <div class="text-xs text-gray-600 mt-1">En progreso</div>
+        <div class="text-center p-4 rounded-md bg-surface2 border border-line">
+          <div class="font-mono text-2xl font-semibold text-signal">{{ data.tasks_summary.in_progress }}</div>
+          <div class="text-xs text-slate-400 mt-1">En progreso</div>
         </div>
-        <div class="text-center p-4 bg-green-50 rounded">
-          <div class="text-2xl font-bold text-green-600">{{ data.tasks_summary.completed }}</div>
-          <div class="text-xs text-gray-600 mt-1">Completadas</div>
+        <div class="text-center p-4 rounded-md bg-surface2 border border-line">
+          <div class="font-mono text-2xl font-semibold text-low">{{ data.tasks_summary.completed }}</div>
+          <div class="text-xs text-slate-400 mt-1">Completadas</div>
         </div>
-        <div class="text-center p-4 bg-gray-50 rounded">
-          <div class="text-2xl font-bold text-gray-600">{{ data.total_proyectos }}</div>
-          <div class="text-xs text-gray-600 mt-1">Proyectos totales</div>
+        <div class="text-center p-4 rounded-md bg-surface2 border border-line">
+          <div class="font-mono text-2xl font-semibold text-slate-200">{{ data.total_proyectos }}</div>
+          <div class="text-xs text-slate-400 mt-1">Proyectos totales</div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Accesos rápidos -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <a href="/projects" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
-      <div class="text-navy font-semibold">📁 Proyectos</div>
-      <div class="text-xs text-gray-500 mt-1">Ver todos los proyectos</div>
-    </a>
-    <a href="/prioritization" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
-      <div class="text-navy font-semibold">🎯 Priorización</div>
-      <div class="text-xs text-gray-500 mt-1">Hallazgos por riesgo</div>
-    </a>
-    <a href="/kev" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
-      <div class="text-navy font-semibold">🚨 KEV</div>
-      <div class="text-xs text-gray-500 mt-1">Explotaciones activas</div>
-    </a>
-    <a href="/reports" class="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow text-center">
-      <div class="text-navy font-semibold">📄 Reportes</div>
-      <div class="text-xs text-gray-500 mt-1">Generar reportes ejecutivos</div>
-    </a>
+    <div class="rounded-lg border border-line bg-surface p-5">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-4">Accesos rápidos</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <a href="/projects" class="group flex items-center gap-3 rounded-md border border-line bg-surface2 p-3 hover:border-signal/50 transition-colors">
+          <svg class="h-5 w-5 text-slate-500 group-hover:text-signal transition-colors shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path d="M3 7h5l2 2h11v9a1 1 0 01-1 1H4a1 1 0 01-1-1V7z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div>
+            <div class="text-sm font-medium text-slate-200">Proyectos</div>
+            <div class="text-xs text-slate-500">Ver portafolio</div>
+          </div>
+        </a>
+        <a href="/prioritization" class="group flex items-center gap-3 rounded-md border border-line bg-surface2 p-3 hover:border-signal/50 transition-colors">
+          <svg class="h-5 w-5 text-slate-500 group-hover:text-signal transition-colors shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <circle cx="12" cy="12" r="8" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="3.5" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <div class="text-sm font-medium text-slate-200">Priorización</div>
+            <div class="text-xs text-slate-500">Hallazgos por riesgo</div>
+          </div>
+        </a>
+        <a href="/kev" class="group flex items-center gap-3 rounded-md border border-line bg-surface2 p-3 hover:border-signal/50 transition-colors">
+          <svg class="h-5 w-5 text-slate-500 group-hover:text-signal transition-colors shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path d="M12 3l9 16H3l9-16z" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 10v4M12 17.5v.01" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <div class="text-sm font-medium text-slate-200">KEV</div>
+            <div class="text-xs text-slate-500">Explotación activa</div>
+          </div>
+        </a>
+        <a href="/reports" class="group flex items-center gap-3 rounded-md border border-line bg-surface2 p-3 hover:border-signal/50 transition-colors">
+          <svg class="h-5 w-5 text-slate-500 group-hover:text-signal transition-colors shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 13h6M9 17h6" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <div class="text-sm font-medium text-slate-200">Reportes</div>
+            <div class="text-xs text-slate-500">Generar ejecutivo</div>
+          </div>
+        </a>
+      </div>
+    </div>
   </div>
 
   {% endif %}

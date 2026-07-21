@@ -61,6 +61,16 @@ async def generate_report(
 
     results = await uc.execute(date_range=date_range, period_label=label, formats=formats)
 
+    if not results:
+        requested = ", ".join(f.value.upper() for f in formats)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Ninguno de los formatos solicitados ({requested}) está disponible en este servidor. "
+                f"PDF requiere WeasyPrint/GTK instalado. Pruebe con DOCX o XLSX."
+            ),
+        )
+
     safe_label = label.replace(" ", "_").replace("/", "-")
 
     if len(results) == 1:

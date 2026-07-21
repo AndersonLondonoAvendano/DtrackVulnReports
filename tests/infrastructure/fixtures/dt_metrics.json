@@ -5,7 +5,7 @@
   "low": 8,
   "unassigned": 1,
   "inheritedRiskScore": 7.4,
-  "total": 49,
+  "vulnerabilities": 49,
   "firstOccurrence": 1710000000000,
   "lastOccurrence": 1718000000000
 }

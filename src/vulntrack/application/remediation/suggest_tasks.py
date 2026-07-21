@@ -47,7 +47,7 @@ class RemediationAdvisor:
                 "recommended_action": "Explotación activa confirmada en catálogo CISA KEV. "
                                       "Aplicar parche o mitigación inmediatamente.",
                 "target_date": ref + timedelta(days=_KEV_DAYS),
-                "priority_band": PriorityBand.IMMEDIATE,
+                "priority_band": PriorityBand.CRITICAL,
             }
 
         epss = finding.epss_score or 0.0
@@ -125,13 +125,13 @@ class SuggestTasksUseCase:
 
         # Sort by priority score desc before creating tasks
         scored = sorted(
-            [(f, self._svc.score(f, matcher.is_in_kev(f.vuln_id))) for f in findings],
+            [(f, self._svc.score(f, matcher.is_in_kev(f.cve_id, f.vuln_id))) for f in findings],
             key=lambda x: x[1].value,
             reverse=True,
         )
 
         for finding, score in scored:
-            in_kev = matcher.is_in_kev(finding.vuln_id)
+            in_kev = matcher.is_in_kev(finding.cve_id, finding.vuln_id)
             suggestion = self._advisor.suggest(finding, in_kev, score, today)
 
             task = await self._remediation_repo.create_task(

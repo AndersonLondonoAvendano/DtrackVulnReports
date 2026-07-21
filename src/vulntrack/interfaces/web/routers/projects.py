@@ -1,15 +1,18 @@
 """T-074: Router de proyectos."""
 from __future__ import annotations
 
+import math
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from vulntrack.application.queries.project_detail_query import ProjectDetailQuery
+from vulntrack.application.remediation.create_plan import CreatePlanUseCase
 from vulntrack.domain.exceptions import ProjectNotFoundError
 from vulntrack.interfaces.web._shared import templates
 from vulntrack.interfaces.web.dependencies import (
+    get_create_plan_use_case,
     get_prioritized_findings_query,
     get_project_detail_query,
     get_project_repo,
@@ -139,14 +142,43 @@ async def projects_html(
 async def project_detail_html(
     request: Request,
     uuid: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
     query: ProjectDetailQuery = Depends(get_project_detail_query),  # noqa: B008
 ) -> Any:
     try:
         detail = await query.execute(uuid)
     except ProjectNotFoundError:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
-    return templates.TemplateResponse(
-        request,
-        "projects/detail.html",
-        {"titulo": detail.project.name, "detail": detail},
+
+    total = len(detail.prioritized_findings)
+    start = (page - 1) * page_size
+    paged_findings = detail.prioritized_findings[start : start + page_size]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+
+    context = {
+        "titulo": detail.project.name,
+        "detail": detail,
+        "paged_findings": paged_findings,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
+    template_name = (
+        "partials/project_findings_table.html"
+        if request.headers.get("hx-request") == "true"
+        else "projects/detail.html"
     )
+    return templates.TemplateResponse(request, template_name, context)
+
+
+@html_router.post("/projects/{project_uuid}/remediation/plans", include_in_schema=False)
+async def create_remediation_plan_form(
+    project_uuid: str,
+    name: str = Form(...),
+    description: str | None = Form(default=None),
+    uc: CreatePlanUseCase = Depends(get_create_plan_use_case),  # noqa: B008
+) -> RedirectResponse:
+    await uc.execute(project_uuid, name, description or None)
+    return RedirectResponse(url=f"/projects/{project_uuid}", status_code=303)

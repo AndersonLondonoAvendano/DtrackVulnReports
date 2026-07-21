@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,6 +66,9 @@ def make_finding(
     vuln_id: str = "CVE-2021-44228",
     severity: Severity = Severity.CRITICAL,
     attributed_on: datetime = NOW,
+    cve_id: str | None = None,
+    cvss_v3_base_score: float | None = 10.0,
+    epss_score: float | None = 0.97,
 ) -> Finding:
     return Finding(
         id=0,
@@ -77,12 +80,13 @@ def make_finding(
         vuln_id=vuln_id,
         vuln_source="NVD",
         severity=severity,
-        cvss_v3_base_score=10.0,
-        epss_score=0.97,
+        cvss_v3_base_score=cvss_v3_base_score,
+        epss_score=epss_score,
         epss_percentile=0.999,
         attributed_on=attributed_on,
         suppressed=False,
         last_synced_at=NOW,
+        cve_id=cve_id,
     )
 
 
@@ -228,6 +232,41 @@ class TestFindingRepository:
         result = await repo.list_all_active()
         assert len(result) == 100
 
+    async def test_upsert_stores_cve_id(self, db_session: AsyncSession) -> None:
+        await self._setup_project(db_session)
+        repo = SqliteFindingRepository(db_session)
+        await repo.upsert_batch([make_finding(vuln_id="GHSA-xxxx", cve_id="CVE-2024-1")])
+        await db_session.flush()
+
+        result = await repo.list_all_active()
+        assert len(result) == 1
+        assert result[0].cve_id == "CVE-2024-1"
+
+    async def test_upsert_updates_cve_id_on_conflict(self, db_session: AsyncSession) -> None:
+        await self._setup_project(db_session)
+        repo = SqliteFindingRepository(db_session)
+        await repo.upsert_batch([make_finding(cve_id=None)])
+        await db_session.flush()
+        await repo.upsert_batch([make_finding(cve_id="CVE-2021-44228")])
+        await db_session.flush()
+
+        result = await repo.list_all_active()
+        assert len(result) == 1
+        assert result[0].cve_id == "CVE-2021-44228"
+
+    async def test_list_all_active_min_cvss_filter(self, db_session: AsyncSession) -> None:
+        await self._setup_project(db_session)
+        repo = SqliteFindingRepository(db_session)
+        await repo.upsert_batch([
+            make_finding(dt_uuid="high", cvss_v3_base_score=9.0),
+            make_finding(dt_uuid="low", cvss_v3_base_score=3.0),
+            make_finding(dt_uuid="null-score", cvss_v3_base_score=None),
+        ])
+        await db_session.flush()
+
+        result = await repo.list_all_active(min_cvss=7.0)
+        assert [r.dt_finding_uuid for r in result] == ["high"]
+
 
 # ── Snapshot Repository ─────────────────────────────────────────────────────
 
@@ -328,6 +367,25 @@ class TestKevRepository:
         repo = SqliteKevRepository(db_session)
         assert await repo.is_cve_in_kev("CVE-9999-9999") is False
 
+    async def test_get_catalog_meta_returns_aware_datetime(self, db_session: AsyncSession) -> None:
+        repo = SqliteKevRepository(db_session)
+        await repo.upsert_batch([make_kev()])
+        await db_session.flush()
+
+        meta = await repo.get_catalog_meta()
+        assert meta is not None
+        assert meta.last_fetched_at is not None
+        assert meta.last_fetched_at.tzinfo is not None, "last_fetched_at debe ser UTC-aware"
+        assert meta.catalog_updated_at.tzinfo is not None, "catalog_updated_at debe ser UTC-aware"
+        # La resta contra datetime.now(UTC) no debe lanzar TypeError
+        from datetime import timedelta
+        age = datetime.now(UTC) - meta.last_fetched_at
+        assert age < timedelta(minutes=1)
+
+    async def test_get_catalog_meta_none_when_empty(self, db_session: AsyncSession) -> None:
+        repo = SqliteKevRepository(db_session)
+        assert await repo.get_catalog_meta() is None
+
     async def test_upsert_batch_updates(self, db_session: AsyncSession) -> None:
         repo = SqliteKevRepository(db_session)
         original = make_kev()
@@ -395,7 +453,7 @@ class TestRemediationRepository:
         task = await repo.create_task(
             plan.id,
             title="Fix CVE",
-            priority_band=PriorityBand.IMMEDIATE,
+            priority_band=PriorityBand.CRITICAL,
             status=TaskStatus.PENDING,
         )
         assert task.id is not None

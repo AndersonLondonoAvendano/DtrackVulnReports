@@ -66,7 +66,7 @@ def _sample_report_data() -> ReportData:
                 epss_score=0.85,
                 is_kev=True,
                 priority_score=92.5,
-                priority_band=PriorityBand.IMMEDIATE,
+                priority_band=PriorityBand.CRITICAL,
             )
         ],
         kev_hits=[],

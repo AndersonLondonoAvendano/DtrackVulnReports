@@ -1,0 +1,28 @@
+{% if sync_running %}
+<div id="sync-status"
+     hx-get="/partials/sync-status"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     class="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-mono text-slate-400">
+  <span class="w-1.5 h-1.5 rounded-full bg-signal inline-block animate-pulse"></span>
+  sincronizando…
+</div>
+{% elif last_sync_at %}
+<div id="sync-status"
+     hx-get="/partials/sync-status"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"
+     class="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-mono text-slate-400">
+  <span class="w-1.5 h-1.5 rounded-full bg-low inline-block"></span>
+  sync {{ last_sync_at.strftime('%d/%m/%Y %H:%M') }}
+</div>
+{% else %}
+<div id="sync-status"
+     hx-get="/partials/sync-status"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"
+     class="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-mono text-slate-400">
+  <span class="w-1.5 h-1.5 rounded-full bg-unassigned inline-block"></span>
+  sin sincronizar
+</div>
+{% endif %}

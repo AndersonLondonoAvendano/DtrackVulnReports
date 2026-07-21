@@ -3,15 +3,15 @@ from enum import StrEnum
 
 
 class PriorityBand(StrEnum):
-    IMMEDIATE = "IMMEDIATE"  # 75-100
-    HIGH = "HIGH"            # 50-74
-    MEDIUM = "MEDIUM"        # 25-49
-    LOW = "LOW"              # 0-24
+    CRITICAL = "CRITICAL"  # 75-100
+    HIGH = "HIGH"          # 50-74
+    MEDIUM = "MEDIUM"      # 25-49
+    LOW = "LOW"            # 0-24
 
     @classmethod
     def from_value(cls, value: float) -> "PriorityBand":
         if value >= 75.0:
-            return cls.IMMEDIATE
+            return cls.CRITICAL
         if value >= 50.0:
             return cls.HIGH
         if value >= 25.0:

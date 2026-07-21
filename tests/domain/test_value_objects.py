@@ -30,9 +30,9 @@ class TestSeverity:
 
 
 class TestPriorityBand:
-    def test_from_value_immediate(self) -> None:
-        assert PriorityBand.from_value(100.0) == PriorityBand.IMMEDIATE
-        assert PriorityBand.from_value(75.0) == PriorityBand.IMMEDIATE
+    def test_from_value_critical(self) -> None:
+        assert PriorityBand.from_value(100.0) == PriorityBand.CRITICAL
+        assert PriorityBand.from_value(75.0) == PriorityBand.CRITICAL
 
     def test_from_value_high(self) -> None:
         assert PriorityBand.from_value(74.9) == PriorityBand.HIGH
@@ -49,7 +49,7 @@ class TestPriorityBand:
 
 class TestPriorityScore:
     def test_valid_score(self) -> None:
-        score = PriorityScore(value=85.0, band=PriorityBand.IMMEDIATE, is_kev=True, breakdown={})
+        score = PriorityScore(value=85.0, band=PriorityBand.CRITICAL, is_kev=True, breakdown={})
         assert score.value == 85.0
         assert score.is_kev is True
 
@@ -58,12 +58,12 @@ class TestPriorityScore:
         assert score.value == 0.0
 
     def test_score_hundred(self) -> None:
-        score = PriorityScore(value=100.0, band=PriorityBand.IMMEDIATE, is_kev=True, breakdown={})
+        score = PriorityScore(value=100.0, band=PriorityBand.CRITICAL, is_kev=True, breakdown={})
         assert score.value == 100.0
 
     def test_invalid_score_raises(self) -> None:
         with pytest.raises(ValueError):
-            PriorityScore(value=101.0, band=PriorityBand.IMMEDIATE, is_kev=False, breakdown={})
+            PriorityScore(value=101.0, band=PriorityBand.CRITICAL, is_kev=False, breakdown={})
 
     def test_negative_score_raises(self) -> None:
         with pytest.raises(ValueError):

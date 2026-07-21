@@ -89,6 +89,7 @@ def orm_to_finding(row: FindingORM) -> Finding:
         attributed_on=row.attributed_on,
         suppressed=row.suppressed,
         last_synced_at=row.last_synced_at,
+        cve_id=row.cve_id,
     )
 
 

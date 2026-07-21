@@ -167,6 +167,63 @@ class TestProjectsRouter:
             resp = client.get("/api/v1/projects/no-uuid")
         assert resp.status_code == 404
 
+    def _make_detail(self, plans: list[object] | None = None) -> object:
+        from vulntrack.application.queries.project_detail_query import ProjectDetailData
+        from vulntrack.domain.entities.project import Project
+
+        return ProjectDetailData(
+            project=Project(
+                uuid="proj-1", name="Alpha", version="1.0", description=None,
+                last_bom_import=None, last_synced_at=datetime.now(UTC),
+            ),
+            current_snapshot=None,
+            prioritized_findings=[],
+            remediation_plans=plans or [],
+            open_tasks=[],
+        )
+
+    def test_create_remediation_plan_form_redirects_303(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_create_plan_use_case
+
+        mock_uc = AsyncMock()
+        app = create_app()
+        app.dependency_overrides[get_create_plan_use_case] = lambda: mock_uc
+
+        with TestClient(app, raise_server_exceptions=False, follow_redirects=False) as client:
+            resp = client.post(
+                "/projects/proj-1/remediation/plans",
+                data={"name": "Test"},
+            )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/projects/proj-1"
+        mock_uc.execute.assert_called_once_with("proj-1", "Test", None)
+
+    def test_create_remediation_plan_form_empty_name_returns_422(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_create_plan_use_case
+
+        mock_uc = AsyncMock()
+        app = create_app()
+        app.dependency_overrides[get_create_plan_use_case] = lambda: mock_uc
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/projects/proj-1/remediation/plans", data={"name": ""})
+        assert resp.status_code == 422
+
+    def test_project_detail_html_shows_create_plan_form_without_plans(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_project_detail_query
+
+        mock_query = AsyncMock()
+        mock_query.execute.return_value = self._make_detail(plans=[])
+
+        app = create_app()
+        app.dependency_overrides[get_project_detail_query] = lambda: mock_query
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/projects/proj-1")
+        assert resp.status_code == 200
+        assert 'action="/projects/proj-1/remediation/plans"' in resp.text
+        assert "Crear plan" in resp.text
+
 
 # ── T-075: Reportes ───────────────────────────────────────────────────────────
 
@@ -211,6 +268,45 @@ class TestReportsRouter:
             })
         assert resp.status_code == 422
 
+    def test_generate_report_returns_422_when_no_formats_available(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_generate_portfolio_use_case
+
+        mock_uc = AsyncMock()
+        mock_uc.execute.return_value = {}  # ningún generador produjo resultado
+
+        app = create_app()
+        app.dependency_overrides[get_generate_portfolio_use_case] = lambda: mock_uc
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/api/v1/reports/generate", json={
+                "period": "quarterly",
+                "quarter": "Q2",
+                "year": 2026,
+                "formats": ["pdf"],
+            })
+        assert resp.status_code == 422
+        assert "PDF" in resp.json()["detail"]
+
+    def test_generate_report_partial_format_ok(self) -> None:
+        """Si PDF no está disponible pero DOCX sí, entrega DOCX sin 422."""
+        from vulntrack.interfaces.web.dependencies import get_generate_portfolio_use_case
+        from vulntrack.application.reports.generate_portfolio_report import ReportFormat
+
+        mock_uc = AsyncMock()
+        mock_uc.execute.return_value = {ReportFormat.DOCX: b"PK\x03\x04fake-docx"}
+
+        app = create_app()
+        app.dependency_overrides[get_generate_portfolio_use_case] = lambda: mock_uc
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/api/v1/reports/generate", json={
+                "period": "quarterly",
+                "quarter": "Q2",
+                "year": 2026,
+                "formats": ["pdf", "docx"],
+            })
+        assert resp.status_code == 200
+
 
 # ── T-076: Priorización ───────────────────────────────────────────────────────
 
@@ -235,7 +331,7 @@ class TestPrioritizationRouter:
             attributed_on=None, suppressed=False, last_synced_at=datetime.now(UTC),
         )
         item.finding = f  # type: ignore[attr-defined]
-        item.score = PriorityScore(value=95.0, band=PriorityBand.IMMEDIATE, is_kev=True, breakdown={})  # type: ignore[attr-defined]
+        item.score = PriorityScore(value=95.0, band=PriorityBand.CRITICAL, is_kev=True, breakdown={})  # type: ignore[attr-defined]
         mock_query.execute.return_value = [item]
 
         app = create_app()
@@ -245,9 +341,10 @@ class TestPrioritizationRouter:
             resp = client.get("/api/v1/findings/prioritized")
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body) == 1
-        assert body[0]["vuln_id"] == "CVE-2021-44228"
-        assert body[0]["is_kev"] is True
+        assert body["total"] == 1
+        assert len(body["items"]) == 1
+        assert body["items"][0]["vuln_id"] == "CVE-2021-44228"
+        assert body["items"][0]["is_kev"] is True
 
     def test_kev_only_filter_forwarded(self) -> None:
         from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query
@@ -269,7 +366,91 @@ class TestPrioritizationRouter:
         assert resp.status_code == 200
         body = resp.json()
         assert "bands" in body
-        assert "IMMEDIATE" in body["bands"]
+        assert "CRITICAL" in body["bands"]
+
+    def _make_items(self, n: int) -> list[object]:
+        from vulntrack.domain.entities.finding import Finding
+        from vulntrack.domain.value_objects.priority_score import PriorityBand, PriorityScore
+
+        class _Item:
+            pass
+
+        items = []
+        for i in range(n):
+            item = _Item()
+            f = Finding(
+                id=i, project_uuid="u1", dt_finding_uuid=f"dt-{i}",
+                component_name="log4j", component_version="2.14.0", component_group=None,
+                vuln_id=f"CVE-2021-{i:05d}", vuln_source="NVD", severity=Severity.CRITICAL,
+                cvss_v3_base_score=10.0, epss_score=0.975, epss_percentile=None,
+                attributed_on=None, suppressed=False, last_synced_at=datetime.now(UTC),
+            )
+            item.finding = f  # type: ignore[attr-defined]
+            item.score = PriorityScore(value=95.0, band=PriorityBand.CRITICAL, is_kev=True, breakdown={})  # type: ignore[attr-defined]
+            items.append(item)
+        return items
+
+    def test_pagination_returns_correct_subset_and_metadata(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query
+
+        mock_query = AsyncMock()
+        mock_query.execute.return_value = self._make_items(238)
+
+        app = create_app()
+        app.dependency_overrides[get_prioritized_findings_query] = lambda: mock_query
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/api/v1/findings/prioritized?page=1&page_size=10")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 238
+        assert body["total_pages"] == 24
+        assert len(body["items"]) == 10
+
+    def test_pagination_out_of_range_returns_empty_items(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query
+
+        mock_query = AsyncMock()
+        mock_query.execute.return_value = self._make_items(238)
+
+        app = create_app()
+        app.dependency_overrides[get_prioritized_findings_query] = lambda: mock_query
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/api/v1/findings/prioritized?page=25&page_size=10")
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []
+
+    def test_prioritization_html_shows_cve_as_display_id(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query
+        from vulntrack.domain.entities.finding import Finding
+        from vulntrack.domain.value_objects.priority_score import PriorityBand, PriorityScore
+
+        class _Item:
+            pass
+
+        item = _Item()
+        f = Finding(
+            id=1, project_uuid="u1", dt_finding_uuid="dt-1",
+            component_name="body-parser", component_version="1.9.0", component_group=None,
+            vuln_id="GHSA-qwcr-r2fm-qrc7", vuln_source="GITHUB", severity=Severity.HIGH,
+            cvss_v3_base_score=7.5, epss_score=0.5, epss_percentile=None,
+            attributed_on=None, suppressed=False, last_synced_at=datetime.now(UTC),
+            cve_id="CVE-2024-45590",
+        )
+        item.finding = f  # type: ignore[attr-defined]
+        item.score = PriorityScore(value=80.0, band=PriorityBand.CRITICAL, is_kev=False, breakdown={})  # type: ignore[attr-defined]
+        mock_query = AsyncMock()
+        mock_query.execute.return_value = [item]
+
+        app = create_app()
+        app.dependency_overrides[get_prioritized_findings_query] = lambda: mock_query
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/prioritization")
+        assert resp.status_code == 200
+        assert "CVE-2024-45590" in resp.text
+        assert "GHSA-qwcr-r2fm-qrc7" in resp.text
 
 
 # ── T-077: KEV ───────────────────────────────────────────────────────────────
@@ -318,7 +499,7 @@ class TestRemediationRouter:
         task = RemediationTask(
             id=1, plan_id=1, finding_id=1, title="Fix CVE-KEV",
             description=None, assignee=None, status=TaskStatus.PENDING,
-            priority_band=PriorityBand.IMMEDIATE,
+            priority_band=PriorityBand.CRITICAL,
             recommended_action="Explotación activa confirmada",
             target_date=date(2026, 7, 2), completed_at=None, notes=None,
             created_at=now, updated_at=now,
@@ -334,7 +515,7 @@ class TestRemediationRouter:
         assert resp.status_code == 200
         body = resp.json()
         assert len(body) == 1
-        assert body[0]["priority_band"] == "IMMEDIATE"
+        assert body[0]["priority_band"] == "CRITICAL"
 
     def test_export_plan_xlsx(self) -> None:
         from vulntrack.interfaces.web.dependencies import get_export_plan_use_case
@@ -349,6 +530,82 @@ class TestRemediationRouter:
             resp = client.post("/api/v1/remediation/plans/1/export?fmt=xlsx")
         assert resp.status_code == 200
         assert resp.content == b"PK\x03\x04fake-xlsx"
+
+
+# ── Bugfix2: Remediación HTML (páginas /remediation, /remediation/{id}) ───────
+
+
+class TestRemediationHtmlRouter:
+    def test_remediation_list_html_with_multiple_projects_having_plans(self) -> None:
+        """Regresión: Project no es hashable (dataclass no frozen), no puede
+        usarse como clave de dict. /remediation daba 500 con >=1 proyecto con planes."""
+        from vulntrack.interfaces.web.dependencies import get_project_repo, get_remediation_repo
+        from vulntrack.domain.entities.project import Project
+        from vulntrack.domain.entities.remediation import RemediationPlan
+
+        now = datetime.now(UTC)
+        projects = [
+            Project(uuid="p1", name="Alpha", version=None, description=None,
+                    last_bom_import=None, last_synced_at=now),
+            Project(uuid="p2", name="Beta", version=None, description=None,
+                    last_bom_import=None, last_synced_at=now),
+        ]
+        plans_by_project = {
+            "p1": [RemediationPlan(id=1, project_uuid="p1", name="Plan A", description=None,
+                                    created_at=now, updated_at=now)],
+            "p2": [],
+        }
+        mock_project_repo = AsyncMock()
+        mock_project_repo.list_all.return_value = projects
+        mock_remediation_repo = AsyncMock()
+        mock_remediation_repo.list_plans_by_project.side_effect = (
+            lambda uuid: plans_by_project[uuid]
+        )
+
+        app = create_app()
+        app.dependency_overrides[get_project_repo] = lambda: mock_project_repo
+        app.dependency_overrides[get_remediation_repo] = lambda: mock_remediation_repo
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/remediation")
+        assert resp.status_code == 200
+        assert "Plan A" in resp.text
+        assert "Alpha" in resp.text
+
+    def test_remediation_detail_html_renders_overdue_task(self) -> None:
+        """Regresión: el template llama a task.is_overdue(today) pero el router
+        no pasaba `today` en el contexto → UndefinedError al comparar fechas."""
+        from vulntrack.interfaces.web.dependencies import get_remediation_repo
+        from vulntrack.domain.entities.remediation import (
+            RemediationPlan,
+            RemediationTask,
+            TaskStatus,
+        )
+        from vulntrack.domain.value_objects.priority_score import PriorityBand
+
+        now = datetime.now(UTC)
+        plan = RemediationPlan(
+            id=1, project_uuid="p1", name="Plan A", description=None,
+            created_at=now, updated_at=now,
+        )
+        overdue_task = RemediationTask(
+            id=1, plan_id=1, finding_id=1, title="Fix CVE",
+            description=None, assignee=None, status=TaskStatus.PENDING,
+            priority_band=PriorityBand.CRITICAL, recommended_action=None,
+            target_date=date(2020, 1, 1), completed_at=None, notes=None,
+            created_at=now, updated_at=now,
+        )
+        mock_repo = AsyncMock()
+        mock_repo.get_plan.return_value = plan
+        mock_repo.list_tasks_by_plan.return_value = [overdue_task]
+
+        app = create_app()
+        app.dependency_overrides[get_remediation_repo] = lambda: mock_repo
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.get("/remediation/1")
+        assert resp.status_code == 200
+        assert "Fix CVE" in resp.text
 
 
 # ── T-079: Configuración ──────────────────────────────────────────────────────
@@ -414,3 +671,58 @@ class TestConfigRouter:
         body = resp.json()
         assert body["ok"] is True
         assert body["dt_version"] == "4.14.1"
+
+    def test_test_connection_404_returns_actionable_message(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_dt_client
+        import httpx
+
+        mock_client = AsyncMock()
+        req = httpx.Request("GET", "http://dt/api/v1/about")
+        mock_client.get_server_version.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=req, response=httpx.Response(404, request=req)
+        )
+
+        app = create_app()
+        app.dependency_overrides[get_dt_client] = lambda: mock_client
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/api/v1/config/test-connection")
+        body = resp.json()
+        assert body["ok"] is False
+        assert "404" in body["error"]
+        assert "API server" in body["error"]
+
+    def test_test_connection_401_returns_actionable_message(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_dt_client
+        import httpx
+
+        mock_client = AsyncMock()
+        req = httpx.Request("GET", "http://dt/api/v1/about")
+        mock_client.get_server_version.side_effect = httpx.HTTPStatusError(
+            "Unauthorized", request=req, response=httpx.Response(401, request=req)
+        )
+
+        app = create_app()
+        app.dependency_overrides[get_dt_client] = lambda: mock_client
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/api/v1/config/test-connection")
+        body = resp.json()
+        assert body["ok"] is False
+        assert "DT_API_KEY" in body["error"]
+
+    def test_test_connection_connect_error_returns_actionable_message(self) -> None:
+        from vulntrack.interfaces.web.dependencies import get_dt_client
+        import httpx
+
+        mock_client = AsyncMock()
+        mock_client.get_server_version.side_effect = httpx.ConnectError("Connection refused")
+
+        app = create_app()
+        app.dependency_overrides[get_dt_client] = lambda: mock_client
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            resp = client.post("/api/v1/config/test-connection")
+        body = resp.json()
+        assert body["ok"] is False
+        assert "DT_BASE_URL" in body["error"]

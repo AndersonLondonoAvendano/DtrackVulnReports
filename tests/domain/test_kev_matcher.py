@@ -24,15 +24,21 @@ class TestKevMatcher:
         self.entries = [make_kev("CVE-2021-44228"), make_kev("CVE-2022-22965")]
         self.matcher = KevMatcher(self.entries)
 
-    def test_known_cve_found(self) -> None:
-        assert self.matcher.is_in_kev("CVE-2021-44228") is True
+    def test_known_cve_found_via_cve_id(self) -> None:
+        assert self.matcher.is_in_kev("CVE-2021-44228", "GHSA-xxxx") is True
+
+    def test_fallback_to_vuln_id_when_no_cve(self) -> None:
+        assert self.matcher.is_in_kev(None, "CVE-2021-44228") is True
+
+    def test_ghsa_not_in_kev(self) -> None:
+        assert self.matcher.is_in_kev(None, "GHSA-xxxx-xxxx-xxxx") is False
 
     def test_unknown_cve_not_found(self) -> None:
-        assert self.matcher.is_in_kev("CVE-9999-99999") is False
+        assert self.matcher.is_in_kev("CVE-9999-99999", "GHSA-xxxx") is False
 
     def test_case_insensitive_lookup(self) -> None:
-        assert self.matcher.is_in_kev("cve-2021-44228") is True
-        assert self.matcher.is_in_kev("Cve-2021-44228") is True
+        assert self.matcher.is_in_kev("cve-2021-44228", "ghsa-xxxx") is True
+        assert self.matcher.is_in_kev("Cve-2021-44228", "GHSA-xxxx") is True
 
     def test_get_kev_details_found(self) -> None:
         entry = self.matcher.get_kev_details("CVE-2021-44228")
@@ -51,11 +57,11 @@ class TestKevMatcher:
         matcher = KevMatcher(large_entries)
         start = time.perf_counter()
         for i in range(1000):
-            matcher.is_in_kev(f"CVE-2024-{i:05d}")
+            matcher.is_in_kev(f"CVE-2024-{i:05d}", f"GHSA-{i:04d}")
         elapsed_ms = (time.perf_counter() - start) * 1000
         assert elapsed_ms < 10.0, f"1000 lookups took {elapsed_ms:.2f}ms (expected <10ms)"
 
     def test_empty_catalog(self) -> None:
         matcher = KevMatcher([])
-        assert matcher.is_in_kev("CVE-2021-44228") is False
+        assert matcher.is_in_kev("CVE-2021-44228", "GHSA-xxxx") is False
         assert matcher.get_kev_details("CVE-2021-44228") is None

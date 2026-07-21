@@ -54,8 +54,10 @@ class TestDashboardQuery:
         kev_repo = AsyncMock()
         kev_repo.list_all.return_value = [_kev_entry("CVE-2024-1234")]
         kev_repo.get_catalog_meta.return_value = None
+        remediation_repo = AsyncMock()
+        remediation_repo.list_all_tasks.return_value = []
 
-        q = DashboardQuery(project_repo, finding_repo, kev_repo)
+        q = DashboardQuery(project_repo, finding_repo, kev_repo, remediation_repo)
         data = await q.execute()
 
         assert data.total_vigentes == 3
@@ -79,8 +81,10 @@ class TestDashboardQuery:
         kev_repo = AsyncMock()
         kev_repo.list_all.return_value = []
         kev_repo.get_catalog_meta.return_value = None
+        remediation_repo = AsyncMock()
+        remediation_repo.list_all_tasks.return_value = []
 
-        q = DashboardQuery(project_repo, finding_repo, kev_repo)
+        q = DashboardQuery(project_repo, finding_repo, kev_repo, remediation_repo)
         data = await q.execute()
 
         assert data.proyectos_en_cero == 1
@@ -94,10 +98,49 @@ class TestDashboardQuery:
         kev_repo = AsyncMock()
         kev_repo.list_all.return_value = []
         kev_repo.get_catalog_meta.return_value = None
+        remediation_repo = AsyncMock()
+        remediation_repo.list_all_tasks.return_value = []
 
-        q = DashboardQuery(project_repo, finding_repo, kev_repo)
+        q = DashboardQuery(project_repo, finding_repo, kev_repo, remediation_repo)
         data = await q.execute()
 
         assert data.total_vigentes == 0
         assert data.kev_hits_count == 0
         assert data.total_proyectos == 0
+
+    @pytest.mark.asyncio
+    async def test_tasks_summary_counts_by_status(self) -> None:
+        from vulntrack.domain.entities.remediation import RemediationTask, TaskStatus
+        from vulntrack.domain.value_objects.priority_score import PriorityBand
+
+        def _task(status: TaskStatus) -> RemediationTask:
+            return RemediationTask(
+                id=1, plan_id=1, finding_id=None, title="t", description=None,
+                assignee=None, status=status, priority_band=PriorityBand.LOW,
+                recommended_action=None, target_date=None, completed_at=None,
+                notes=None, created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+            )
+
+        project_repo = AsyncMock()
+        project_repo.list_all.return_value = []
+        finding_repo = AsyncMock()
+        finding_repo.list_all_active.return_value = []
+        kev_repo = AsyncMock()
+        kev_repo.list_all.return_value = []
+        kev_repo.get_catalog_meta.return_value = None
+        remediation_repo = AsyncMock()
+        remediation_repo.list_all_tasks.return_value = [
+            _task(TaskStatus.PENDING),
+            _task(TaskStatus.PENDING),
+            _task(TaskStatus.IN_PROGRESS),
+            _task(TaskStatus.COMPLETED),
+            _task(TaskStatus.DISCARDED),
+        ]
+
+        q = DashboardQuery(project_repo, finding_repo, kev_repo, remediation_repo)
+        data = await q.execute()
+
+        assert data.tasks_summary.total == 5
+        assert data.tasks_summary.pending == 2
+        assert data.tasks_summary.in_progress == 1
+        assert data.tasks_summary.completed == 1

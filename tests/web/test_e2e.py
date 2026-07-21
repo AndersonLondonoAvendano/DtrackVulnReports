@@ -270,7 +270,8 @@ class TestE2EPrioritizedFindings:
     async def test_kev_finding_ranks_first(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/v1/findings/prioritized")
         assert resp.status_code == 200
-        findings = resp.json()
+        page = resp.json()
+        findings = page["items"]
         assert len(findings) > 0
 
         top = findings[0]
@@ -280,7 +281,8 @@ class TestE2EPrioritizedFindings:
     async def test_kev_only_filter(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/v1/findings/prioritized", params={"kev_only": "true"})
         assert resp.status_code == 200
-        findings = resp.json()
+        page = resp.json()
+        findings = page["items"]
         # Solo debe devolver el finding KEV
         assert all(f["is_kev"] for f in findings)
         assert len(findings) == 1

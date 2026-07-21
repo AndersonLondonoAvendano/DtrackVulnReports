@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from vulntrack.application.queries.dashboard_query import DashboardQuery
 from vulntrack.domain.value_objects.severity import Severity
 from vulntrack.interfaces.web.dependencies import get_dashboard_query
+from vulntrack.interfaces.web.routers.sync import is_sync_running
 from vulntrack.interfaces.web.schemas.dashboard import DashboardOut, TaskSummaryOut
 
 router = APIRouter(tags=["dashboard"])
@@ -52,6 +53,8 @@ async def dashboard_html(
     context: dict[str, Any] = {
         "titulo": "Dashboard — VulnTrack",
         "data": data,
+        "sync_running": is_sync_running(),
+        "last_sync_at": data.last_sync_at if data else None,
         "sev_labels": {
             Severity.CRITICAL: "Crítica",
             Severity.HIGH: "Alta",

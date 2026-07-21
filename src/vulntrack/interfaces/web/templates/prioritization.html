@@ -1,97 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Priorización — VulnTrack{% endblock %}
+{% block title %}Priorización — VulnTrack Reports{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-  <h1 class="text-2xl font-bold text-navy">Hallazgos Priorizados</h1>
+<div class="space-y-6">
+
+  <div>
+    <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Portafolio</p>
+    <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Hallazgos priorizados</h1>
+  </div>
 
   <!-- Filtros -->
   <form method="get"
         hx-get="/prioritization"
         hx-target="#findings-table"
         hx-swap="outerHTML"
-        class="bg-white rounded-lg shadow p-4 flex flex-wrap gap-4 items-end">
-    <label class="flex items-center gap-2 text-sm font-medium">
-      <input type="checkbox" name="kev_only" value="true" {{ 'checked' if kev_only }} class="rounded">
+        class="rounded-lg border border-line bg-surface p-4 flex flex-wrap gap-4 items-end">
+    <label class="flex items-center gap-2 text-sm font-medium text-slate-300">
+      <input type="checkbox" name="kev_only" value="true" {{ 'checked' if kev_only }}
+             class="rounded border-line bg-surface2 accent-signal">
       Solo KEV
     </label>
     <div>
-      <label class="block text-xs text-gray-500 mb-1">CVSS mínimo</label>
+      <label class="block text-xs text-slate-500 mb-1">CVSS mínimo</label>
       <input type="number" name="min_cvss" value="{{ min_cvss or '' }}" min="0" max="10" step="0.1"
              placeholder="0.0"
-             class="border rounded px-2 py-1 text-sm w-20 focus:ring-2 focus:ring-navy">
+             class="rounded-md border border-line bg-surface2 px-2 py-1.5 text-sm w-20 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
     </div>
     <div>
-      <label class="block text-xs text-gray-500 mb-1">EPSS mínimo</label>
+      <label class="block text-xs text-slate-500 mb-1">EPSS mínimo</label>
       <input type="number" name="min_epss" value="{{ min_epss or '' }}" min="0" max="1" step="0.01"
              placeholder="0.00"
-             class="border rounded px-2 py-1 text-sm w-20 focus:ring-2 focus:ring-navy">
+             class="rounded-md border border-line bg-surface2 px-2 py-1.5 text-sm w-20 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
     </div>
-    <button type="submit" class="bg-navy text-white text-sm px-4 py-1.5 rounded hover:bg-blue-800">
+    <button type="submit" class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors">
       Filtrar
     </button>
-    <a href="/prioritization" class="text-sm text-gray-500 px-3 py-1.5 border rounded hover:bg-gray-100">
+    <a href="/prioritization" class="text-sm text-slate-400 px-3 py-2 border border-line rounded-md hover:border-signal/50 hover:text-slate-200 transition-colors">
       Limpiar
     </a>
   </form>
 
   <!-- Tabla de hallazgos -->
-  <div id="findings-table">
-    {% if items %}
-    <div class="bg-white rounded-lg shadow overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="table-header">
-            <th class="px-3 py-2 text-left">#</th>
-            <th class="px-3 py-2 text-left">CVE / Vuln ID</th>
-            <th class="px-3 py-2 text-left">Componente</th>
-            <th class="px-3 py-2 text-left">Proyecto</th>
-            <th class="px-3 py-2 text-center">Severidad</th>
-            <th class="px-3 py-2 text-right">CVSS</th>
-            <th class="px-3 py-2 text-right">EPSS</th>
-            <th class="px-3 py-2 text-center">KEV</th>
-            <th class="px-3 py-2 text-right">Score</th>
-            <th class="px-3 py-2 text-center">Banda</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in items %}
-          {% set f = item.finding %}
-          {% set s = item.score %}
-          <tr class="border-b hover:bg-gray-50 {{ 'bg-red-50' if s.is_kev }}">
-            <td class="px-3 py-2 text-gray-400 text-xs">{{ loop.index }}</td>
-            <td class="px-3 py-2 font-mono text-xs">{{ f.vuln_id }}</td>
-            <td class="px-3 py-2">{{ f.component_name }}
-              {% if f.component_version %}<span class="text-gray-400 text-xs">:{{ f.component_version }}</span>{% endif %}
-            </td>
-            <td class="px-3 py-2 text-gray-600">{{ f.project_uuid[:8] }}…</td>
-            <td class="px-3 py-2 text-center">
-              <span class="sev-{{ f.severity.value|lower }} px-2 py-0.5 rounded text-xs">{{ f.severity.value }}</span>
-            </td>
-            <td class="px-3 py-2 text-right">{{ "%.1f"|format(f.cvss_v3_base_score) if f.cvss_v3_base_score else '—' }}</td>
-            <td class="px-3 py-2 text-right">{{ "%.3f"|format(f.epss_score) if f.epss_score else '—' }}</td>
-            <td class="px-3 py-2 text-center">{{ '🚨' if s.is_kev else '—' }}</td>
-            <td class="px-3 py-2 text-right font-bold">{{ "%.1f"|format(s.value) }}</td>
-            <td class="px-3 py-2 text-center">
-              <span class="px-2 py-0.5 rounded text-xs
-                {% if s.band.value == 'IMMEDIATE' %}bg-red-100 text-red-700
-                {% elif s.band.value == 'HIGH' %}bg-orange-100 text-orange-700
-                {% elif s.band.value == 'MEDIUM' %}bg-yellow-100 text-yellow-700
-                {% else %}bg-green-100 text-green-700{% endif %}">
-                {{ s.band.value }}
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <p class="text-xs text-gray-400 mt-2">{{ items|length }} hallazgo(s) mostrado(s)</p>
-    {% else %}
-    <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
-      Sin hallazgos con los filtros aplicados.
-    </div>
-    {% endif %}
-  </div>
+  {% include "partials/prioritization_findings_table.html" %}
 </div>
 {% endblock %}

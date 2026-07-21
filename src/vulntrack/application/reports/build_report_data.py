@@ -154,7 +154,7 @@ class BuildReportDataUseCase:
         # Prioritized findings (top N)
         prioritized_items = sorted(
             [
-                (f, self._svc.score(f, kev_matcher.is_in_kev(f.vuln_id)))
+                (f, self._svc.score(f, kev_matcher.is_in_kev(f.cve_id, f.vuln_id)))
                 for f in all_findings
             ],
             key=lambda x: x[1].value,

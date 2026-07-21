@@ -34,17 +34,16 @@ class PrioritizedFindingsQuery:
         min_cvss: float | None = None,
         min_epss: float | None = None,
     ) -> list[PrioritizedFindingItem]:
-        findings = await self._finding_repo.list_all_active()
+        findings = await self._finding_repo.list_all_active(
+            min_cvss=min_cvss,
+            min_epss=min_epss,
+        )
 
         items: list[PrioritizedFindingItem] = []
         for f in findings:
-            in_kev = self._kev_matcher.is_in_kev(f.vuln_id)
+            in_kev = self._kev_matcher.is_in_kev(f.cve_id, f.vuln_id)
 
             if kev_only and not in_kev:
-                continue
-            if min_cvss is not None and (f.cvss_v3_base_score or 0.0) < min_cvss:
-                continue
-            if min_epss is not None and (f.epss_score or 0.0) < min_epss:
                 continue
 
             score = self._svc.score(f, in_kev)

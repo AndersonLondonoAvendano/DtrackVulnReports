@@ -1,0 +1,86 @@
+  <div id="findings-table">
+    {% if items %}
+    <div class="rounded-lg border border-line bg-surface overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="table-header">
+            <th class="px-3 py-2 text-left font-medium">#</th>
+            <th class="px-3 py-2 text-left font-medium">CVE / Vuln ID</th>
+            <th class="px-3 py-2 text-left font-medium">Componente</th>
+            <th class="px-3 py-2 text-left font-medium">Proyecto</th>
+            <th class="px-3 py-2 text-center font-medium">Severidad</th>
+            <th class="px-3 py-2 text-right font-medium">CVSS</th>
+            <th class="px-3 py-2 text-right font-medium">EPSS</th>
+            <th class="px-3 py-2 text-center font-medium">KEV</th>
+            <th class="px-3 py-2 text-right font-medium">Score</th>
+            <th class="px-3 py-2 text-center font-medium">Banda</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          {% set f = item.finding %}
+          {% set s = item.score %}
+          <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors {{ 'bg-critical/5' if s.is_kev }}">
+            <td class="px-3 py-2 text-slate-500 text-xs font-mono">{{ loop.index + (page - 1) * page_size }}</td>
+            <td class="px-3 py-2 font-mono text-xs text-slate-300">
+              {{ f.display_id }}
+              {% if f.cve_id and f.vuln_id != f.cve_id %}
+                <span class="text-slate-500 block">{{ f.vuln_id }}</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-slate-200">{{ f.component_name }}
+              {% if f.component_version %}<span class="text-slate-500">:{{ f.component_version }}</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-slate-400 font-mono text-xs">{{ f.project_uuid[:8] }}…</td>
+            <td class="px-3 py-2 text-center">
+              <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ f.severity.value|lower }}/15 text-{{ f.severity.value|lower }} ring-1 ring-{{ f.severity.value|lower }}/30">
+                {{ f.severity.value }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-right font-mono text-slate-300">{{ "%.1f"|format(f.cvss_v3_base_score) if f.cvss_v3_base_score else '—' }}</td>
+            <td class="px-3 py-2 text-right font-mono text-slate-300">{{ "%.3f"|format(f.epss_score) if f.epss_score else '—' }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if s.is_kev %}
+              <svg class="inline h-4 w-4 text-critical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-label="KEV">
+                <path d="M12 3l9 16H3l9-16z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 10v4M12 17.5v.01" stroke-linecap="round"/>
+              </svg>
+              {% else %}<span class="text-slate-600">—</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-right font-mono font-semibold text-slate-100">{{ "%.1f"|format(s.value) }}</td>
+            <td class="px-3 py-2 text-center">
+              {% set band_color = {'CRITICAL': 'critical', 'HIGH': 'high', 'MEDIUM': 'medium'}.get(s.band.value, 'low') %}
+              <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ band_color }}/15 text-{{ band_color }} ring-1 ring-{{ band_color }}/30">
+                {{ s.band.value }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <!-- Paginación -->
+    <div class="flex items-center justify-between mt-3">
+      <p class="text-xs text-slate-500 font-mono">
+        {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, total]|min }} de {{ total }} hallazgo(s)
+      </p>
+      <div class="flex gap-2">
+        {% if page > 1 %}
+        <a hx-get="/prioritization?page={{ page - 1 }}&page_size={{ page_size }}&kev_only={{ kev_only }}&min_cvss={{ min_cvss or '' }}&min_epss={{ min_epss or '' }}"
+           hx-target="#findings-table" hx-swap="outerHTML"
+           class="text-sm px-3 py-1.5 border border-line rounded-md hover:border-signal/50 hover:text-slate-200 text-slate-400 transition-colors cursor-pointer">← Anterior</a>
+        {% endif %}
+        <span class="text-sm text-slate-500 px-3 py-1.5 font-mono">{{ page }} / {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a hx-get="/prioritization?page={{ page + 1 }}&page_size={{ page_size }}&kev_only={{ kev_only }}&min_cvss={{ min_cvss or '' }}&min_epss={{ min_epss or '' }}"
+           hx-target="#findings-table" hx-swap="outerHTML"
+           class="text-sm px-3 py-1.5 border border-line rounded-md hover:border-signal/50 hover:text-slate-200 text-slate-400 transition-colors cursor-pointer">Siguiente →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="rounded-lg border border-line bg-surface p-10 text-center text-slate-500">
+      Sin hallazgos con los filtros aplicados.
+    </div>
+    {% endif %}
+  </div>

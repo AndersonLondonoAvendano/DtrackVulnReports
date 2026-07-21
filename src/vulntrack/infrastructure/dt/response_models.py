@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DtProject(BaseModel):
@@ -25,7 +27,7 @@ class DtMetrics(BaseModel):
     low: int = 0
     unassigned: int = 0
     risk_score: float = Field(0.0, alias="inheritedRiskScore")
-    total: int = 0
+    total: int = Field(0, alias="vulnerabilities")
     first_occurrence: datetime | None = Field(None, alias="firstOccurrence")
     last_occurrence: datetime | None = Field(None, alias="lastOccurrence")
 
@@ -47,7 +49,7 @@ class DtVulnerabilityAnalysis(BaseModel):
     justification: str | None = None
     response: list[str] = Field(default_factory=list)
     detail: str | None = None
-    suppressed: bool = False
+    suppressed: bool = Field(False, alias="isSuppressed")
 
 
 class DtVulnerabilityInFinding(BaseModel):
@@ -62,9 +64,25 @@ class DtVulnerabilityInFinding(BaseModel):
     title: str | None = None
     severity: str = "UNASSIGNED"
     cvss_v3_base_score: float | None = Field(None, alias="cvssV3BaseScore")
+    cvss_v3_vector: str | None = Field(None, alias="cvssV3Vector")
     epss_score: float | None = Field(None, alias="epssScore")
     epss_percentile: float | None = Field(None, alias="epssPercentile")
     cwes: list[int] = Field(default_factory=list)
+
+    @field_validator("cwes", mode="before")
+    @classmethod
+    def parse_cwes(cls, v: Any) -> list[int]:
+        # DT v4.11+ devuelve cwes como lista de objetos {"cweId": 20, "name": "..."}
+        # versiones anteriores lo devuelven como lista de enteros
+        result: list[int] = []
+        for item in v or []:
+            if isinstance(item, int):
+                result.append(item)
+            elif isinstance(item, dict):
+                cwe_id = item.get("cweId") or item.get("cwe")
+                if isinstance(cwe_id, int):
+                    result.append(cwe_id)
+        return result
 
 
 class DtFinding(BaseModel):
@@ -105,7 +123,7 @@ class DtMetricsHistory(BaseModel):
     low: int = 0
     unassigned: int = 0
     risk_score: float = Field(0.0, alias="inheritedRiskScore")
-    total: int = 0
+    total: int = Field(0, alias="vulnerabilities")
     first_occurrence: datetime | None = Field(None, alias="firstOccurrence")
     last_occurrence: datetime | None = Field(None, alias="lastOccurrence")
 

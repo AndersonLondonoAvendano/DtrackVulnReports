@@ -47,14 +47,14 @@ _SEV_LABELS: dict[Severity, str] = {
 }
 
 _BAND_LABELS: dict[PriorityBand, str] = {
-    PriorityBand.IMMEDIATE: "Inmediata",
+    PriorityBand.CRITICAL: "Inmediata",
     PriorityBand.HIGH: "Alta",
     PriorityBand.MEDIUM: "Media",
     PriorityBand.LOW: "Baja",
 }
 
 _BAND_FILLS: dict[PriorityBand, PatternFill] = {
-    PriorityBand.IMMEDIATE: PatternFill("solid", fgColor="C00000"),
+    PriorityBand.CRITICAL: PatternFill("solid", fgColor="C00000"),
     PriorityBand.HIGH: PatternFill("solid", fgColor="FF9900"),
     PriorityBand.MEDIUM: PatternFill("solid", fgColor="FFFF00"),
     PriorityBand.LOW: PatternFill("solid", fgColor="D9D9D9"),
@@ -344,7 +344,7 @@ class XlsxGenerator:
             band_cell = ws.cell(row=row_idx, column=10, value=_BAND_LABELS.get(fr.priority_band, fr.priority_band))
             band_cell.alignment = _ALIGN_CENTER
             band_cell.fill = _BAND_FILLS[fr.priority_band]
-            if fr.priority_band == PriorityBand.IMMEDIATE:
+            if fr.priority_band == PriorityBand.CRITICAL:
                 band_cell.font = _FONT_WHITE_BOLD
 
         ws.freeze_panes = "A2"

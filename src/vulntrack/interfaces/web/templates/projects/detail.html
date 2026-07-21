@@ -1,125 +1,101 @@
 {% extends "base.html" %}
-{% block title %}{{ detail.project.name }} — VulnTrack{% endblock %}
+{% block title %}{{ detail.project.name }} — VulnTrack Reports{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
 
   <!-- Encabezado -->
-  <div class="flex items-start justify-between">
+  <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <div class="text-sm text-gray-400 mb-1">
-        <a href="/projects" class="hover:text-navy">← Proyectos</a>
-      </div>
-      <h1 class="text-2xl font-bold text-navy">{{ detail.project.name }}</h1>
+      <a href="/projects" class="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-[0.2em] text-signal hover:text-slate-200 transition-colors">
+        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Proyectos
+      </a>
+      <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">{{ detail.project.name }}</h1>
       {% if detail.project.version %}
-        <span class="text-sm text-gray-500">v{{ detail.project.version }}</span>
+      <span class="font-mono text-xs text-slate-500">v{{ detail.project.version }}</span>
       {% endif %}
     </div>
-    <div class="text-right text-sm text-gray-400">
-      Última sync: {{ detail.project.last_synced_at.strftime('%d/%m/%Y %H:%M') if detail.project.last_synced_at else '—' }}
+    <div class="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-mono text-slate-400">
+      <span class="w-1.5 h-1.5 rounded-full {{ 'bg-low' if detail.project.last_synced_at else 'bg-unassigned' }} inline-block"></span>
+      {% if detail.project.last_synced_at %}
+      sync {{ detail.project.last_synced_at.strftime('%d/%m/%Y %H:%M') }}
+      {% else %}
+      sin sincronizar
+      {% endif %}
     </div>
   </div>
 
   <!-- Snapshot actual -->
   {% if detail.current_snapshot %}
   {% set s = detail.current_snapshot %}
-  <div class="bg-white rounded-lg shadow p-5">
-    <h2 class="text-lg font-semibold text-navy mb-4">Estado actual
-      <span class="text-sm font-normal text-gray-500 ml-2">({{ s.snapshot_date }})</span>
-    </h2>
-    <div class="grid grid-cols-5 gap-3">
-      {% for sev_key, label, color in [
-        ('critical','Crítica','critical'), ('high','Alta','high'),
-        ('medium','Media','medium'), ('low','Baja','low'),
-        ('unassigned','Sin asignar','unassigned')
+  <div class="rounded-lg border border-line bg-surface p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Estado actual</h2>
+      <span class="font-mono text-xs text-slate-500">{{ s.snapshot_date }}</span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {% for sev_key, label, bar_class in [
+        ('critical','Crítica','bg-critical'), ('high','Alta','bg-high'),
+        ('medium','Media','bg-medium'), ('low','Baja','bg-low'),
+        ('unassigned','Sin asignar','bg-unassigned')
       ] %}
-      <div class="text-center p-3 sev-{{ sev_key }} rounded">
-        <div class="text-2xl font-bold">{{ s[sev_key] }}</div>
-        <div class="text-xs mt-1">{{ label }}</div>
+      <div class="relative overflow-hidden rounded-md border border-line bg-surface2 p-3 text-center">
+        <div class="absolute inset-x-0 top-0 h-0.5 {{ bar_class }}"></div>
+        <div class="font-mono text-xl font-semibold tabular-nums text-slate-50">{{ s[sev_key] }}</div>
+        <div class="text-[11px] uppercase tracking-wide text-slate-400 mt-1">{{ label }}</div>
       </div>
       {% endfor %}
     </div>
-    <div class="mt-3 text-sm text-gray-600">
-      Total: <strong>{{ s.total }}</strong> · Risk score: <strong>{{ "%.1f"|format(s.risk_score) }}</strong>
+    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400">
+      <span>Total: <strong class="text-slate-100 font-mono">{{ s.total }}</strong></span>
+      <span>Risk score: <strong class="text-slate-100 font-mono">{{ "%.1f"|format(s.risk_score) }}</strong></span>
     </div>
   </div>
   {% endif %}
 
-  <!-- Hallazgos priorizados -->
-  <div class="bg-white rounded-lg shadow p-5">
-    <h2 class="text-lg font-semibold text-navy mb-4">
-      Hallazgos priorizados
-      <span class="text-sm font-normal text-gray-500 ml-2">({{ detail.prioritized_findings|length }})</span>
-    </h2>
-    {% if detail.prioritized_findings %}
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="table-header">
-            <th class="px-3 py-2 text-left">CVE / Vuln ID</th>
-            <th class="px-3 py-2 text-left">Componente</th>
-            <th class="px-3 py-2 text-center">Severidad</th>
-            <th class="px-3 py-2 text-right">CVSS</th>
-            <th class="px-3 py-2 text-right">EPSS</th>
-            <th class="px-3 py-2 text-center">KEV</th>
-            <th class="px-3 py-2 text-right">Score</th>
-            <th class="px-3 py-2 text-center">Banda</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for pf in detail.prioritized_findings %}
-          <tr class="border-b hover:bg-gray-50">
-            <td class="px-3 py-2 font-mono text-xs">{{ pf.finding.vuln_id }}</td>
-            <td class="px-3 py-2">{{ pf.finding.component_name }}
-              {% if pf.finding.component_version %}<span class="text-gray-400">:{{ pf.finding.component_version }}</span>{% endif %}
-            </td>
-            <td class="px-3 py-2 text-center">
-              <span class="sev-{{ pf.finding.severity.value|lower }} px-2 py-0.5 rounded text-xs">
-                {{ pf.finding.severity.value }}
-              </span>
-            </td>
-            <td class="px-3 py-2 text-right">{{ "%.1f"|format(pf.finding.cvss_v3_base_score) if pf.finding.cvss_v3_base_score else '—' }}</td>
-            <td class="px-3 py-2 text-right">{{ "%.3f"|format(pf.finding.epss_score) if pf.finding.epss_score else '—' }}</td>
-            <td class="px-3 py-2 text-center">
-              {% if pf.score.is_kev %}<span class="text-red-600 font-bold">🚨</span>{% else %}—{% endif %}
-            </td>
-            <td class="px-3 py-2 text-right font-semibold">{{ "%.1f"|format(pf.score.value) }}</td>
-            <td class="px-3 py-2 text-center">
-              <span class="px-2 py-0.5 rounded text-xs
-                {% if pf.score.band.value == 'IMMEDIATE' %}bg-red-100 text-red-700
-                {% elif pf.score.band.value == 'HIGH' %}bg-orange-100 text-orange-700
-                {% elif pf.score.band.value == 'MEDIUM' %}bg-yellow-100 text-yellow-700
-                {% else %}bg-green-100 text-green-700{% endif %}">
-                {{ pf.score.band.value }}
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="text-gray-400 text-center py-8">Sin hallazgos activos.</p>
-    {% endif %}
-  </div>
+  {% include "partials/project_findings_table.html" %}
 
-  <!-- Planes de remediación -->
-  {% if detail.remediation_plans %}
-  <div class="bg-white rounded-lg shadow p-5">
-    <h2 class="text-lg font-semibold text-navy mb-4">Planes de remediación</h2>
-    <div class="space-y-2">
+  <!-- Remediación: lista de planes + formulario de creación -->
+  <div class="rounded-lg border border-line bg-surface p-5">
+    <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-4">Remediación</h2>
+
+    {% if detail.remediation_plans %}
+    <div class="space-y-2 mb-5">
       {% for plan in detail.remediation_plans %}
-      <div class="flex items-center justify-between border rounded px-4 py-2">
+      <div class="flex items-center justify-between rounded-md border border-line bg-surface2 px-4 py-2.5">
         <div>
-          <span class="font-medium">{{ plan.name }}</span>
-          {% if plan.description %}<span class="text-gray-400 text-sm ml-2">{{ plan.description }}</span>{% endif %}
+          <span class="text-sm font-medium text-slate-200">{{ plan.name }}</span>
+          {% if plan.description %}<span class="text-slate-500 text-sm ml-2">{{ plan.description }}</span>{% endif %}
         </div>
-        <a href="/remediation/{{ plan.id }}" class="text-blue-600 hover:underline text-sm">Ver plan →</a>
+        <a href="/remediation/{{ plan.id }}" class="text-signal hover:underline text-xs font-medium">Ver plan →</a>
       </div>
       {% endfor %}
     </div>
+    {% endif %}
+
+    <!-- Formulario crear nuevo plan -->
+    <form method="post"
+          action="/projects/{{ detail.project.uuid }}/remediation/plans"
+          class="flex flex-wrap gap-3 items-end">
+      <div class="flex-1 min-w-48">
+        <label class="block text-xs text-slate-500 mb-1">Nombre del plan *</label>
+        <input type="text" name="name" required placeholder="Ej: Sprint de remediación Q3"
+               class="w-full rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+      </div>
+      <div class="flex-1 min-w-48">
+        <label class="block text-xs text-slate-500 mb-1">Descripción (opcional)</label>
+        <input type="text" name="description" placeholder="Hallazgos críticos…"
+               class="w-full rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+      </div>
+      <button type="submit"
+              class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors whitespace-nowrap">
+        + Crear plan
+      </button>
+    </form>
   </div>
-  {% endif %}
 
 </div>
 {% endblock %}

@@ -5,78 +5,88 @@
 <div class="space-y-6">
 
   <!-- Encabezado -->
-  <div class="flex items-start justify-between">
+  <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <div class="text-sm text-gray-400 mb-1">
-        <a href="/remediation" class="hover:text-navy">← Planes de remediación</a>
-      </div>
-      <h1 class="text-2xl font-bold text-navy">{{ plan.name }}</h1>
-      {% if plan.description %}<p class="text-gray-500 text-sm">{{ plan.description }}</p>{% endif %}
+      <a href="/remediation" class="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-[0.2em] text-signal hover:text-slate-200 transition-colors">
+        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Planes de remediación
+      </a>
+      <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">{{ plan.name }}</h1>
+      {% if plan.description %}<p class="text-slate-500 text-sm mt-1">{{ plan.description }}</p>{% endif %}
     </div>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <button
         hx-post="/api/v1/remediation/plans/{{ plan.id }}/suggest"
         hx-swap="none"
         hx-on::after-request="window.location.reload()"
-        class="bg-yellow-500 text-white text-sm px-4 py-2 rounded hover:bg-yellow-600">
-        ✨ Generar sugerencias
+        class="inline-flex items-center gap-2 text-sm font-medium bg-medium/15 text-medium ring-1 ring-medium/30 px-4 py-2 rounded-md hover:bg-medium/25 transition-colors">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/>
+        </svg>
+        Generar sugerencias
       </button>
       <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
-         class="bg-green-600 text-white text-sm px-4 py-2 rounded hover:bg-green-700">
-        ↓ Exportar .xlsx
+         class="inline-flex items-center gap-2 text-sm font-medium bg-low/15 text-low ring-1 ring-low/30 px-4 py-2 rounded-md hover:bg-low/25 transition-colors">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Exportar .xlsx
       </a>
       <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=pdf"
-         class="bg-red-600 text-white text-sm px-4 py-2 rounded hover:bg-red-700">
-        ↓ Exportar PDF
+         class="inline-flex items-center gap-2 text-sm font-medium bg-signal/15 text-signal ring-1 ring-signal/30 px-4 py-2 rounded-md hover:bg-signal/25 transition-colors">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Exportar PDF
       </a>
     </div>
   </div>
 
   <!-- Tabla de tareas -->
-  <div class="bg-white rounded-lg shadow p-5">
-    <h2 class="text-lg font-semibold text-navy mb-4">
-      Tareas
-      <span class="text-sm font-normal text-gray-500 ml-2">({{ tasks|length }})</span>
-    </h2>
+  <div class="rounded-lg border border-line bg-surface p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Tareas</h2>
+      <span class="font-mono text-xs text-slate-500">{{ tasks|length }}</span>
+    </div>
     {% if tasks %}
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto rounded-md border border-line">
       <table class="w-full text-sm">
         <thead>
           <tr class="table-header">
-            <th class="px-3 py-2 text-left">Tarea</th>
-            <th class="px-3 py-2 text-center">Prioridad</th>
-            <th class="px-3 py-2 text-center">Estado</th>
-            <th class="px-3 py-2 text-left">Responsable</th>
-            <th class="px-3 py-2 text-center">Fecha objetivo</th>
-            <th class="px-3 py-2 text-center">Acción</th>
+            <th class="px-3 py-2 text-left font-medium">Tarea</th>
+            <th class="px-3 py-2 text-center font-medium">Prioridad</th>
+            <th class="px-3 py-2 text-center font-medium">Estado</th>
+            <th class="px-3 py-2 text-left font-medium">Responsable</th>
+            <th class="px-3 py-2 text-center font-medium">Fecha objetivo</th>
+            <th class="px-3 py-2 text-center font-medium">Acción</th>
           </tr>
         </thead>
         <tbody>
           {% for task in tasks %}
-          <tr class="border-b hover:bg-gray-50 {{ 'opacity-50' if task.status.value == 'DISCARDED' }}">
+          <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors {{ 'opacity-50' if task.status.value == 'DISCARDED' }}">
             <td class="px-3 py-2">
-              <div class="font-medium">{{ task.title }}</div>
+              <div class="font-medium text-slate-200">{{ task.title }}</div>
               {% if task.recommended_action %}
-              <div class="text-xs text-gray-500 mt-0.5">{{ task.recommended_action }}</div>
+              <div class="text-xs text-slate-500 mt-0.5">{{ task.recommended_action }}</div>
               {% endif %}
             </td>
             <td class="px-3 py-2 text-center">
-              <span class="px-2 py-0.5 rounded text-xs
-                {% if task.priority_band.value == 'IMMEDIATE' %}bg-red-100 text-red-700
-                {% elif task.priority_band.value == 'HIGH' %}bg-orange-100 text-orange-700
-                {% elif task.priority_band.value == 'MEDIUM' %}bg-yellow-100 text-yellow-700
-                {% else %}bg-green-100 text-green-700{% endif %}">
+              {% set band_color = {'CRITICAL': 'critical', 'HIGH': 'high', 'MEDIUM': 'medium'}.get(task.priority_band.value, 'low') %}
+              <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ band_color }}/15 text-{{ band_color }} ring-1 ring-{{ band_color }}/30">
                 {{ task.priority_band.value }}
               </span>
             </td>
             <td class="px-3 py-2 text-center">
               <!-- Status editable inline con HTMX -->
               <select
+                name="status"
                 hx-patch="/api/v1/remediation/tasks/{{ task.id }}"
-                hx-vals='{"status": event.target.value}'
+                hx-ext="json-enc"
                 hx-swap="none"
-                hx-on::after-request="this.closest('tr').classList.add('bg-green-50')"
-                class="border rounded text-xs px-2 py-1 focus:ring-2 focus:ring-navy">
+                hx-on::after-request="this.closest('tr').classList.add(event.detail.successful ? 'bg-low/10' : 'bg-critical/10')"
+                class="rounded-md border border-line bg-surface2 text-slate-200 text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
                 {% for status in ['PENDING','IN_PROGRESS','COMPLETED','DISCARDED'] %}
                 <option value="{{ status }}" {{ 'selected' if task.status.value == status }}>
                   {{ status }}
@@ -84,12 +94,12 @@
                 {% endfor %}
               </select>
             </td>
-            <td class="px-3 py-2 text-gray-600">{{ task.assignee or '—' }}</td>
-            <td class="px-3 py-2 text-center {{ 'text-red-600 font-semibold' if task.is_overdue(today) }}">
+            <td class="px-3 py-2 text-slate-400">{{ task.assignee or '—' }}</td>
+            <td class="px-3 py-2 text-center font-mono {{ 'text-critical font-semibold' if task.is_overdue(today) else 'text-slate-400' }}">
               {{ task.target_date or '—' }}
             </td>
-            <td class="px-3 py-2 text-center text-xs text-gray-400">
-              {% if task.completed_at %}✓ {{ task.completed_at.strftime('%d/%m') }}{% endif %}
+            <td class="px-3 py-2 text-center text-xs font-mono text-low">
+              {% if task.completed_at %}✓ {{ task.completed_at.strftime('%d/%m') }}{% else %}<span class="text-slate-600">—</span>{% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -97,9 +107,9 @@
       </table>
     </div>
     {% else %}
-    <div class="text-center py-8 text-gray-400">
+    <div class="text-center py-8 text-slate-500 text-sm">
       <p>Este plan no tiene tareas aún.</p>
-      <p class="text-sm mt-2">Usa el botón "Generar sugerencias" para crear tareas automáticamente.</p>
+      <p class="mt-2">Usa el botón "Generar sugerencias" para crear tareas automáticamente.</p>
     </div>
     {% endif %}
   </div>

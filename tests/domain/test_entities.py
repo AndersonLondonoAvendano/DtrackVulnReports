@@ -74,7 +74,7 @@ def make_task(**kwargs: object) -> RemediationTask:
         "description": None,
         "assignee": None,
         "status": TaskStatus.PENDING,
-        "priority_band": PriorityBand.IMMEDIATE,
+        "priority_band": PriorityBand.CRITICAL,
         "recommended_action": None,
         "target_date": None,
         "completed_at": None,
@@ -130,6 +130,14 @@ class TestFinding:
     def test_safe_epss_none(self) -> None:
         f = make_finding(epss_score=None)
         assert f.safe_epss() == 0.0
+
+    def test_display_id_uses_cve_when_present(self) -> None:
+        f = make_finding(cve_id="CVE-2024-1", vuln_id="GHSA-xxxx")
+        assert f.display_id == "CVE-2024-1"
+
+    def test_display_id_falls_back_to_vuln_id(self) -> None:
+        f = make_finding(cve_id=None, vuln_id="GHSA-xxxx")
+        assert f.display_id == "GHSA-xxxx"
 
 
 class TestKevEntry:
