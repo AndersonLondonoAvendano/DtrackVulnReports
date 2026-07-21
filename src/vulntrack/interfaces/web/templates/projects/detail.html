@@ -58,12 +58,18 @@
 
   {% include "partials/project_findings_table.html" %}
 
-  <!-- Remediación: lista de planes + formulario de creación -->
+  <!-- Remediación: planes de este proyecto (creación vive en /remediation, T-E021) -->
   <div class="rounded-lg border border-line bg-surface p-5">
-    <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-4">Remediación</h2>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Remediación</h2>
+      <a href="/remediation?project_uuid={{ detail.project.uuid }}"
+         class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors whitespace-nowrap">
+        Ver planes de este proyecto →
+      </a>
+    </div>
 
     {% if detail.remediation_plans %}
-    <div class="space-y-2 mb-5">
+    <div class="space-y-2">
       {% for plan in detail.remediation_plans %}
       <div class="flex items-center justify-between rounded-md border border-line bg-surface2 px-4 py-2.5">
         <div>
@@ -74,27 +80,9 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <p class="text-sm text-slate-500">Este proyecto no tiene planes de remediación aún.</p>
     {% endif %}
-
-    <!-- Formulario crear nuevo plan -->
-    <form method="post"
-          action="/projects/{{ detail.project.uuid }}/remediation/plans"
-          class="flex flex-wrap gap-3 items-end">
-      <div class="flex-1 min-w-48">
-        <label class="block text-xs text-slate-500 mb-1">Nombre del plan *</label>
-        <input type="text" name="name" required placeholder="Ej: Sprint de remediación Q3"
-               class="w-full rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
-      </div>
-      <div class="flex-1 min-w-48">
-        <label class="block text-xs text-slate-500 mb-1">Descripción (opcional)</label>
-        <input type="text" name="description" placeholder="Hallazgos críticos…"
-               class="w-full rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
-      </div>
-      <button type="submit"
-              class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors whitespace-nowrap">
-        + Crear plan
-      </button>
-    </form>
   </div>
 
 </div>

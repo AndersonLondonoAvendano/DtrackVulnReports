@@ -7,11 +7,11 @@ from typing import Protocol
 
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.project import Project
-from vulntrack.domain.entities.remediation import TaskStatus
+from vulntrack.domain.entities.vulnerability_treatment import TreatmentStatus
 from vulntrack.domain.ports.finding_repository import FindingRepository
 from vulntrack.domain.ports.kev_repository import KevRepository
 from vulntrack.domain.ports.project_repository import ProjectRepository
-from vulntrack.domain.ports.remediation_repository import RemediationRepository
+from vulntrack.domain.ports.treatment_repository import TreatmentRepository
 from vulntrack.domain.value_objects.severity import Severity
 
 
@@ -45,13 +45,13 @@ class DashboardQuery:
         project_repo: ProjectRepository,
         finding_repo: FindingRepository,
         kev_repo: KevRepository,
-        remediation_repo: RemediationRepository,
+        treatment_repo: TreatmentRepository,
         last_sync_at: datetime | None = None,
     ) -> None:
         self._project_repo = project_repo
         self._finding_repo = finding_repo
         self._kev_repo = kev_repo
-        self._remediation_repo = remediation_repo
+        self._treatment_repo = treatment_repo
         self._last_sync_at = last_sync_at
 
     async def execute(self) -> DashboardData:
@@ -86,13 +86,13 @@ class DashboardQuery:
         kev_ids = {e.cve_id.upper() for e in all_kev}
         kev_hits_count = sum(1 for f in findings if (f.cve_id or f.vuln_id).upper() in kev_ids)
 
-        # Resumen de tareas de remediación (todos los planes, todos los proyectos)
-        tasks = await self._remediation_repo.list_all_tasks()
+        # Resumen de tratamientos de vulnerabilidad (todos los planes, todos los proyectos)
+        treatments = await self._treatment_repo.list_all()
         tasks_summary = TaskSummary(
-            total=len(tasks),
-            pending=sum(1 for t in tasks if t.status == TaskStatus.PENDING),
-            in_progress=sum(1 for t in tasks if t.status == TaskStatus.IN_PROGRESS),
-            completed=sum(1 for t in tasks if t.status == TaskStatus.COMPLETED),
+            total=len(treatments),
+            pending=sum(1 for t in treatments if t.estado == TreatmentStatus.PENDIENTE),
+            in_progress=sum(1 for t in treatments if t.estado == TreatmentStatus.EN_CURSO),
+            completed=sum(1 for t in treatments if t.estado == TreatmentStatus.FINALIZADA),
         )
 
         return DashboardData(

@@ -1,11 +1,17 @@
-"""T-067: Caso de uso ExportPlan — exporta plan de remediación en .xlsx o .pdf."""
+"""T-067: Caso de uso ExportPlan — exporta plan de remediación en .xlsx o .pdf.
+
+Iteración 4: el plan materializa sus ítems como `TratamientoVulnerabilidad`
+(no como el `RemediationTask` legado, retirado) -- se exportan sus tratamientos.
+"""
 from __future__ import annotations
 
 from enum import StrEnum
 
-from vulntrack.domain.entities.remediation import RemediationPlan, RemediationTask
+from vulntrack.domain.entities.remediation import RemediationPlan
+from vulntrack.domain.entities.vulnerability_treatment import TratamientoVulnerabilidad
 from vulntrack.domain.exceptions import DomainError
 from vulntrack.domain.ports.remediation_repository import RemediationRepository
+from vulntrack.domain.ports.treatment_repository import TreatmentRepository
 
 
 class ExportFormat(StrEnum):
@@ -19,22 +25,24 @@ class PlanNotFoundError(DomainError):
 
 
 class ExportPlanUseCase:
-    def __init__(self, repo: RemediationRepository) -> None:
+    def __init__(self, repo: RemediationRepository, treatment_repo: TreatmentRepository) -> None:
         self._repo = repo
+        self._treatment_repo = treatment_repo
 
     async def execute(self, plan_id: int, fmt: ExportFormat) -> bytes:
         plan = await self._repo.get_plan(plan_id)
         if plan is None:
             raise PlanNotFoundError(plan_id)
 
-        tasks = await self._repo.list_tasks_by_plan(plan_id)
+        all_treatments = await self._treatment_repo.list_by_project(plan.project_uuid)
+        treatments = [t for t in all_treatments if t.plan_id == plan_id]
 
         if fmt == ExportFormat.XLSX:
-            return _export_xlsx(plan, tasks)
-        return _export_pdf(plan, tasks)
+            return _export_xlsx(plan, treatments)
+        return _export_pdf(plan, treatments)
 
 
-def _export_xlsx(plan: RemediationPlan, tasks: list[RemediationTask]) -> bytes:
+def _export_xlsx(plan: RemediationPlan, treatments: list[TratamientoVulnerabilidad]) -> bytes:
     import io
 
     from openpyxl import Workbook
@@ -48,8 +56,8 @@ def _export_xlsx(plan: RemediationPlan, tasks: list[RemediationTask]) -> bytes:
     header_fill = PatternFill("solid", fgColor="1F3864")
     header_font = Font(bold=True, color="FFFFFF", size=11)
     headers = [
-        "ID", "Título", "Estado", "Prioridad", "Asignado a",
-        "Fecha objetivo", "Acción recomendada", "Notas",
+        "ID", "CVE / Vuln ID", "Componente", "Estado", "Prioridad", "Responsable",
+        "Fecha objetivo", "Notas",
     ]
     for col, h in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col, value=h)  # type: ignore[union-attr]
@@ -58,15 +66,15 @@ def _export_xlsx(plan: RemediationPlan, tasks: list[RemediationTask]) -> bytes:
         cell.alignment = Alignment(horizontal="center")
 
     # Rows
-    for row_idx, task in enumerate(tasks, start=2):
-        ws.cell(row=row_idx, column=1, value=task.id)  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=2, value=task.title)  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=3, value=task.status)  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=4, value=task.priority_band)  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=5, value=task.assignee or "")  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=6, value=str(task.target_date) if task.target_date else "")  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=7, value=task.recommended_action or "")  # type: ignore[union-attr]
-        ws.cell(row=row_idx, column=8, value=task.notes or "")  # type: ignore[union-attr]
+    for row_idx, t in enumerate(treatments, start=2):
+        ws.cell(row=row_idx, column=1, value=t.id)  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=2, value=t.vuln_key)  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=3, value=t.component_name or "")  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=4, value=t.estado.value)  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=5, value=t.priority_band.value)  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=6, value=t.responsable or "")  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=7, value=str(t.fecha_objetivo) if t.fecha_objetivo else "")  # type: ignore[union-attr]
+        ws.cell(row=row_idx, column=8, value=t.notas or "")  # type: ignore[union-attr]
 
     # Autowidth
     for col_cells in ws.columns:  # type: ignore[union-attr]
@@ -81,14 +89,12 @@ def _export_xlsx(plan: RemediationPlan, tasks: list[RemediationTask]) -> bytes:
     return buf.read()
 
 
-def _export_pdf(plan: RemediationPlan, tasks: list[RemediationTask]) -> bytes:
-    from jinja2 import Environment, PackageLoader
-
+def _export_pdf(plan: RemediationPlan, treatments: list[TratamientoVulnerabilidad]) -> bytes:
     rows_html = "".join(
-        f"<tr><td>{t.id}</td><td>{t.title}</td><td>{t.status}</td>"
-        f"<td>{t.priority_band}</td><td>{t.assignee or ''}</td>"
-        f"<td>{t.target_date or ''}</td><td>{t.recommended_action or ''}</td></tr>"
-        for t in tasks
+        f"<tr><td>{t.id}</td><td>{t.vuln_key}</td><td>{t.component_name or ''}</td>"
+        f"<td>{t.estado.value}</td><td>{t.priority_band.value}</td>"
+        f"<td>{t.responsable or ''}</td><td>{t.fecha_objetivo or ''}</td></tr>"
+        for t in treatments
     )
     html = f"""<!DOCTYPE html>
 <html>
@@ -110,8 +116,8 @@ td {{ border: 1px solid #ccc; padding: 3px 5px; font-size: 9px; }}
 <p>Generado: {plan.updated_at.strftime('%Y-%m-%d %H:%M')}</p>
 <table>
 <tr>
-<th>ID</th><th>Título</th><th>Estado</th><th>Prioridad</th>
-<th>Asignado</th><th>Fecha objetivo</th><th>Acción recomendada</th>
+<th>ID</th><th>CVE / Vuln ID</th><th>Componente</th><th>Estado</th>
+<th>Prioridad</th><th>Responsable</th><th>Fecha objetivo</th>
 </tr>
 {rows_html}
 </table>

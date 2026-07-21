@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from vulntrack.application.queries.quarterly_metrics_query import QuarterlyMetricsQuery
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.metric_snapshot import MetricSnapshot
 from vulntrack.domain.entities.project import Project
@@ -11,9 +12,12 @@ from vulntrack.domain.ports.finding_repository import FindingRepository
 from vulntrack.domain.ports.kev_repository import KevRepository
 from vulntrack.domain.ports.project_repository import ProjectRepository
 from vulntrack.domain.ports.snapshot_repository import SnapshotRepository
+from vulntrack.domain.ports.sprint_repository import SprintRepository
+from vulntrack.domain.ports.treatment_repository import TreatmentRepository
 from vulntrack.domain.services.advance_calculator import AdvanceCalculator, AdvanceResult
 from vulntrack.domain.services.kev_matcher import KevMatcher
 from vulntrack.domain.services.prioritization import PrioritizationService, PriorityWeights
+from vulntrack.domain.services.quarter import quarter_of
 from vulntrack.domain.value_objects.date_range import DateRange
 from vulntrack.domain.value_objects.priority_score import PriorityBand
 from vulntrack.domain.value_objects.severity import Severity
@@ -21,6 +25,8 @@ from vulntrack.infrastructure.reports.chart_builder import (
     EvolutionRow,
     PrioritizedFindingRow,
     ProjectRow,
+    QuarterlyProgressData,
+    QuarterlySprintTrendRow,
     ReportData,
 )
 
@@ -36,6 +42,8 @@ class BuildReportDataUseCase:
         finding_repo: FindingRepository,
         snapshot_repo: SnapshotRepository,
         kev_repo: KevRepository,
+        treatment_repo: TreatmentRepository | None = None,
+        sprint_repo: SprintRepository | None = None,
         weights: PriorityWeights | None = None,
         author: str = "VulnTrack Reports",
     ) -> None:
@@ -43,6 +51,8 @@ class BuildReportDataUseCase:
         self._finding_repo = finding_repo
         self._snapshot_repo = snapshot_repo
         self._kev_repo = kev_repo
+        self._treatment_repo = treatment_repo
+        self._sprint_repo = sprint_repo
         self._weights = weights
         self._author = author
         self._calc = AdvanceCalculator()
@@ -175,6 +185,8 @@ class BuildReportDataUseCase:
             / max(sum(r.total for r in project_rows), 1)
         )
 
+        quarterly_progress = await self._build_quarterly_progress(date_range, project_uuids)
+
         return ReportData(
             period_label=period_label,
             date_from=date_range.date_from,
@@ -191,6 +203,54 @@ class BuildReportDataUseCase:
             evolution_rows=evolution_rows,
             prioritized_findings=prioritized_findings,
             kev_hits=kev_hits,
+            quarterly_progress=quarterly_progress,
+        )
+
+    async def _build_quarterly_progress(
+        self, date_range: DateRange, project_uuids: list[str] | None
+    ) -> QuarterlyProgressData | None:
+        """T-D048: sección opcional -- `None` si no se wireó sprint/treatment
+        repo, o si no hay ningún tratamiento para el Q/proyecto del reporte."""
+        if self._treatment_repo is None or self._sprint_repo is None:
+            return None
+
+        anio, trimestre = quarter_of(date_range.date_to)
+        project_uuid = (
+            project_uuids[0] if project_uuids is not None and len(project_uuids) == 1 else None
+        )
+        try:
+            metrics = await QuarterlyMetricsQuery(
+                treatment_repo=self._treatment_repo, sprint_repo=self._sprint_repo
+            ).execute(anio, trimestre, project_uuid=project_uuid)
+        except Exception as exc:
+            logger.warning("build_report_data_quarterly_progress_failed error=%s", exc)
+            return None
+
+        if metrics.core.entraron == 0 and not metrics.tendencia_por_sprint:
+            return None
+
+        return QuarterlyProgressData(
+            anio=metrics.anio,
+            trimestre=metrics.trimestre,
+            entraron=metrics.core.entraron,
+            resueltas=metrics.core.resueltas,
+            pospuestas=metrics.core.pospuestas,
+            no_cumplidas=metrics.core.no_cumplidas,
+            en_curso=metrics.core.en_curso,
+            descartadas=metrics.core.descartadas,
+            pct_cumplimiento=metrics.core.pct_cumplimiento,
+            tendencia_por_sprint=[
+                QuarterlySprintTrendRow(
+                    sprint_nombre=t.sprint_nombre,
+                    entraron=t.core.entraron,
+                    resueltas=t.core.resueltas,
+                    pospuestas=t.core.pospuestas,
+                    no_cumplidas=t.core.no_cumplidas,
+                    en_curso=t.core.en_curso,
+                    descartadas=t.core.descartadas,
+                )
+                for t in metrics.tendencia_por_sprint
+            ],
         )
 
 

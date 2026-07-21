@@ -109,6 +109,13 @@ class PdfGenerator:
             )
             charts["grouped"] = _buf_to_b64(grp)
 
+        if data.quarterly_progress is not None:
+            qp = data.quarterly_progress
+            progress_buf = builder.quarterly_progress_bars(
+                qp, f"Avance de remediación — {qp.anio}-Q{qp.trimestre}"
+            )
+            charts["quarterly_progress"] = _buf_to_b64(progress_buf)
+
         observations = _build_observations(data)
 
         template = self._env.get_template("report_pdf.html")

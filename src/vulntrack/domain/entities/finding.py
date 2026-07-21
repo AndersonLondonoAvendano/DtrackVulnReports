@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 
 from vulntrack.domain.value_objects.severity import Severity
+
+
+class FindingLifecycleState(StrEnum):
+    ACTIVA = "ACTIVA"
+    RESUELTA = "RESUELTA"
 
 
 @dataclass
@@ -22,6 +28,13 @@ class Finding:
     suppressed: bool
     last_synced_at: datetime
     cve_id: str | None = None
+    estado_ciclo_vida: FindingLifecycleState = FindingLifecycleState.ACTIVA
+    primera_deteccion_at: datetime | None = None
+    ultima_vista_at: datetime | None = None
+    resuelta_at: datetime | None = None
+    es_reincidente: bool = False
+    reaparicion_count: int = 0
+    ultima_reaparicion_at: datetime | None = None
 
     @property
     def display_id(self) -> str:

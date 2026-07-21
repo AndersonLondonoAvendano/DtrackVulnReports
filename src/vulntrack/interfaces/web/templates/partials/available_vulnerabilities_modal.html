@@ -1,0 +1,58 @@
+{# T-D040 / T-E023: contenido del modal "Agregar manual" con selección de
+   vulnerabilidades disponibles (sin tratamiento activo) para el plan
+   actualmente abierto. Se carga vía HTMX cada vez que se abre el modal para
+   reflejar el estado real (lo ya tomado no debe reaparecer). #}
+<form method="post" action="/remediation/plans/{{ plan.id }}/treatments-form" class="space-y-4">
+  {% if items %}
+  <div class="max-h-96 overflow-y-auto rounded-md border border-line">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="table-header sticky top-0">
+          <th class="px-2 py-2 text-left font-medium w-8"></th>
+          <th class="px-2 py-2 text-left font-medium">CVE / Vuln ID</th>
+          <th class="px-2 py-2 text-left font-medium">Componente</th>
+          <th class="px-2 py-2 text-center font-medium">Severidad</th>
+          <th class="px-2 py-2 text-right font-medium">Score</th>
+          <th class="px-2 py-2 text-left font-medium">Responsable</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        {% set f = item.finding %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-2 py-2">
+            <input type="checkbox" name="finding_ids" value="{{ f.id }}"
+                   class="rounded border-line bg-surface2 accent-signal"
+                   onchange="document.getElementById('selected-count').textContent = document.querySelectorAll('input[name=finding_ids]:checked').length">
+          </td>
+          <td class="px-2 py-2 font-mono text-xs text-slate-300">
+            {{ f.display_id }}
+            {% if item.previous_no_cumplida_sprint_id %}
+            <span class="block text-[10px] text-medium">NO_CUMPLIDA en Sprint {{ item.previous_no_cumplida_sprint_id }}</span>
+            {% endif %}
+          </td>
+          <td class="px-2 py-2 text-slate-200">{{ f.component_name }}</td>
+          <td class="px-2 py-2 text-center">
+            <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ f.severity.value|lower }}/15 text-{{ f.severity.value|lower }} ring-1 ring-{{ f.severity.value|lower }}/30">
+              {{ f.severity.value }}
+            </span>
+          </td>
+          <td class="px-2 py-2 text-right font-mono text-slate-100">{{ "%.1f"|format(item.score.value) }}</td>
+          <td class="px-2 py-2">
+            <input type="text" name="responsable_{{ f.id }}" placeholder="Nombre"
+                   class="w-full rounded-md border border-line bg-surface2 px-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-signal">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="submit" class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors">
+    Agregar <span id="selected-count">0</span> seleccionadas
+  </button>
+  {% else %}
+  <div class="rounded-md border border-line bg-surface2 p-6 text-center text-slate-500 text-sm">
+    No hay vulnerabilidades disponibles para este proyecto (todas tienen tratamiento activo o no hay hallazgos).
+  </div>
+  {% endif %}
+</form>

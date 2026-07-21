@@ -15,7 +15,10 @@ from vulntrack.application.reports.generate_portfolio_report import (
 from vulntrack.domain.value_objects.date_range import DateRange
 from vulntrack.domain.value_objects.report_period import ReportPeriod
 from vulntrack.interfaces.web._shared import templates
-from vulntrack.interfaces.web.dependencies import get_generate_portfolio_use_case
+from vulntrack.interfaces.web.dependencies import (
+    get_generate_portfolio_use_case,
+    is_pdf_generation_available,
+)
 from vulntrack.interfaces.web.schemas.report import GenerateReportRequest
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reportes"])
@@ -104,6 +107,10 @@ async def reports_html(request: Request) -> Any:
     return templates.TemplateResponse(
         request,
         "reports.html",
-        {"titulo": "Generar Reporte", "current_year": current_year,
-         "years": list(range(current_year - 3, current_year + 1))},
+        {
+            "titulo": "Generar Reporte",
+            "current_year": current_year,
+            "years": list(range(current_year - 3, current_year + 1)),
+            "pdf_available": is_pdf_generation_available(),
+        },
     )

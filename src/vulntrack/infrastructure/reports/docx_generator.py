@@ -145,6 +145,7 @@ class DocxGenerator:
         self._add_estado_actual(doc, data, builder)
         self._add_nuevas_periodo(doc, data, builder)
         self._add_evolucion(doc, data, builder)
+        self._add_quarterly_progress(doc, data, builder)
         self._add_prioritized_findings(doc, data)
         self._add_conclusions(doc, data)
         self._add_signature_footer(doc)
@@ -380,10 +381,89 @@ class DocxGenerator:
 
         doc.add_paragraph()
 
+    # ── Sección 6: Avance de remediación por Q ────────────────────────────────
+
+    def _add_quarterly_progress(
+        self, doc: Document, data: ReportData, builder: ChartBuilder
+    ) -> None:
+        _section_heading(doc, "6. Avance de remediación por Q")
+
+        qp = data.quarterly_progress
+        if qp is None:
+            doc.add_paragraph(
+                "No hay sprints ni tratamientos registrados para este período."
+            )
+            doc.add_paragraph()
+            return
+
+        p = doc.add_paragraph(f"Período: {qp.anio}-Q{qp.trimestre}")
+        p.paragraph_format.space_after = Pt(4)
+
+        chart_buf = builder.quarterly_progress_bars(
+            qp, f"Avance de remediación — {qp.anio}-Q{qp.trimestre}"
+        )
+        _add_chart_image(doc, chart_buf, width_inches=6.0)
+
+        headers = [
+            "Entraron", "Resueltas", "Pospuestas", "No cumplidas", "En curso",
+            "Descartadas", "% cumplimiento",
+        ]
+        table = doc.add_table(rows=2, cols=len(headers))
+        table.style = "Table Grid"
+        _header_row(table, headers)
+
+        pct_str = f"{qp.pct_cumplimiento * 100:.1f}%" if qp.pct_cumplimiento is not None else "—"
+        values = [
+            qp.entraron, qp.resueltas, qp.pospuestas, qp.no_cumplidas,
+            qp.en_curso, qp.descartadas, pct_str,
+        ]
+        row = table.rows[1]
+        for col_idx, val in enumerate(values):
+            cell = row.cells[col_idx]
+            cell.text = str(val)
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            if cell.paragraphs[0].runs:
+                cell.paragraphs[0].runs[0].font.size = Pt(10)
+                cell.paragraphs[0].runs[0].bold = True
+
+        doc.add_paragraph()
+
+        if qp.tendencia_por_sprint:
+            p2 = doc.add_paragraph("Tendencia por sprint:")
+            p2.paragraph_format.space_after = Pt(2)
+
+            trend_headers = [
+                "Sprint", "Entraron", "Resueltas", "Pospuestas",
+                "No cumplidas", "En curso", "Descartadas",
+            ]
+            trend_table = doc.add_table(
+                rows=len(qp.tendencia_por_sprint) + 1, cols=len(trend_headers)
+            )
+            trend_table.style = "Table Grid"
+            _header_row(trend_table, trend_headers)
+
+            for row_idx, t in enumerate(qp.tendencia_por_sprint, start=1):
+                trend_row = trend_table.rows[row_idx]
+                trend_values = [
+                    t.sprint_nombre, t.entraron, t.resueltas, t.pospuestas,
+                    t.no_cumplidas, t.en_curso, t.descartadas,
+                ]
+                for col_idx, val in enumerate(trend_values):
+                    cell = trend_row.cells[col_idx]
+                    cell.text = str(val)
+                    para = cell.paragraphs[0]
+                    para.alignment = (
+                        WD_ALIGN_PARAGRAPH.LEFT if col_idx == 0 else WD_ALIGN_PARAGRAPH.CENTER
+                    )
+                    if para.runs:
+                        para.runs[0].font.size = Pt(9)
+
+        doc.add_paragraph()
+
     # ── Sección 7: Hallazgos priorizados ──────────────────────────────────────
 
     def _add_prioritized_findings(self, doc: Document, data: ReportData) -> None:
-        _section_heading(doc, "6. Hallazgos priorizados")
+        _section_heading(doc, "7. Hallazgos priorizados")
 
         top_findings = data.prioritized_findings[:20]
         if not top_findings:
@@ -437,7 +517,7 @@ class DocxGenerator:
     # ── Sección 8: Conclusiones ───────────────────────────────────────────────
 
     def _add_conclusions(self, doc: Document, data: ReportData) -> None:
-        _section_heading(doc, "7. Conclusiones y recomendaciones")
+        _section_heading(doc, "8. Conclusiones y recomendaciones")
 
         observations = self._build_observations(data)
         for obs in observations:
@@ -479,7 +559,7 @@ class DocxGenerator:
     # ── Sección 9: Pie de firma ───────────────────────────────────────────────
 
     def _add_signature_footer(self, doc: Document) -> None:
-        _section_heading(doc, "8. Firmas")
+        _section_heading(doc, "9. Firmas")
 
         table = doc.add_table(rows=2, cols=3)
         table.style = "Table Grid"

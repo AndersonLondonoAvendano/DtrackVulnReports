@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from vulntrack.interfaces.web.schemas.treatment import TreatmentSummaryOut
+
 
 class ProjectOut(BaseModel):
     uuid: str
@@ -27,6 +29,8 @@ class SnapshotOut(BaseModel):
 class PrioritizedFindingOut(BaseModel):
     finding_id: int
     vuln_id: str
+    project_uuid: str
+    project_name: str
     component_name: str
     component_version: str | None
     severity: str
@@ -35,6 +39,7 @@ class PrioritizedFindingOut(BaseModel):
     is_kev: bool
     priority_score: float
     priority_band: str
+    treatment: TreatmentSummaryOut | None = None
 
 
 class ProjectDetailOut(BaseModel):

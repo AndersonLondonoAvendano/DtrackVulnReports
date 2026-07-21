@@ -1,0 +1,96 @@
+{# T-D046: sección "Avance de remediación por Q" del dashboard. #}
+<div id="quarterly-metrics-section" class="rounded-lg border border-line bg-surface p-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 flex items-center gap-1.5">
+      Avance de remediación — {{ selected_anio }}-Q{{ selected_trimestre }}
+      <span class="relative inline-flex group">
+        <span tabindex="0" class="cursor-help text-slate-500 hover:text-signal font-mono text-xs normal-case tracking-normal">ⓘ</span>
+        <span class="pointer-events-none absolute left-1/2 top-full z-10 mt-1 w-72 -translate-x-1/2 rounded-md border border-line bg-surface2 p-3 text-xs font-normal normal-case tracking-normal text-slate-300 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          Calculado a partir del historial de estados de tratamientos
+          (<code>treatment_status_history</code>), no del estado actual --
+          "Entraron" cuenta cada asignación a un sprint del Q; "Resueltas" y
+          "Descartadas" cuentan tratamientos con seguimiento (con plan/sprint
+          asignado). "Resueltas sin seguimiento" son vulnerabilidades que
+          desaparecieron de Dependency-Track sin haber estado nunca en un
+          plan -- categoría separada, D4: ninguna identidad se cuenta en
+          ambas a la vez.
+        </span>
+      </span>
+    </h2>
+    <form hx-get="/" hx-target="#quarterly-metrics-section" hx-swap="outerHTML" hx-trigger="change"
+          class="flex items-center gap-2">
+      <select name="anio"
+              class="rounded-md border border-line bg-surface2 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal">
+        {% for a in anios %}
+        <option value="{{ a }}" {{ 'selected' if a == selected_anio }}>{{ a }}</option>
+        {% endfor %}
+      </select>
+      <select name="trimestre"
+              class="rounded-md border border-line bg-surface2 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal">
+        {% for t in [1, 2, 3, 4] %}
+        <option value="{{ t }}" {{ 'selected' if t == selected_trimestre }}>Q{{ t }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {% if metrics %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+    {% for label, value, color in [
+      ('Entraron', metrics.core.entraron, 'slate-100'),
+      ('Resueltas', metrics.core.resueltas, 'low'),
+      ('Pospuestas', metrics.core.pospuestas, 'medium'),
+      ('No cumplidas', metrics.core.no_cumplidas, 'critical'),
+      ('En curso', metrics.core.en_curso, 'signal'),
+      ('Descartadas', metrics.core.descartadas, 'unassigned'),
+      ('Resueltas sin seguimiento', metrics.core.resueltas_sin_seguimiento, 'slate-400'),
+    ] %}
+    <div class="text-center p-3 rounded-md bg-surface2 border border-line">
+      <div class="font-mono text-xl font-semibold text-{{ color }}">{{ value }}</div>
+      <div class="text-[11px] text-slate-400 mt-1">{{ label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="text-sm text-slate-400 mb-4">
+    % cumplimiento:
+    <span class="font-mono font-semibold text-slate-100">
+      {% if metrics.core.pct_cumplimiento is not none %}{{ "%.1f"|format(metrics.core.pct_cumplimiento * 100) }}%{% else %}—{% endif %}
+    </span>
+  </p>
+
+  {% if metrics.tendencia_por_sprint %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="table-header">
+          <th class="px-2 py-1.5 text-left font-medium">Sprint</th>
+          <th class="px-2 py-1.5 text-right font-medium">Entraron</th>
+          <th class="px-2 py-1.5 text-right font-medium">Resueltas</th>
+          <th class="px-2 py-1.5 text-right font-medium">Pospuestas</th>
+          <th class="px-2 py-1.5 text-right font-medium">No cumplidas</th>
+          <th class="px-2 py-1.5 text-right font-medium">En curso</th>
+          <th class="px-2 py-1.5 text-right font-medium">Descartadas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trend in metrics.tendencia_por_sprint %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-2 py-1.5 text-slate-200">{{ trend.sprint_nombre }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.entraron }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.resueltas }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.pospuestas }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.no_cumplidas }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.en_curso }}</td>
+          <td class="px-2 py-1.5 text-right font-mono text-slate-300">{{ trend.core.descartadas }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-500">Sin sprints en este período.</p>
+  {% endif %}
+  {% else %}
+  <p class="text-sm text-slate-500">Métricas no disponibles.</p>
+  {% endif %}
+</div>

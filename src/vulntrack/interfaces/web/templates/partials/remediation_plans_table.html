@@ -1,0 +1,53 @@
+{% from "partials/_pagination.html" import render_pagination %}
+  <div id="remediation-plans-table">
+    {% if rows %}
+    <div class="rounded-lg border border-line bg-surface overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="table-header">
+            <th class="px-4 py-3 text-left font-medium">Plan</th>
+            <th class="px-4 py-3 text-left font-medium">Proyecto</th>
+            <th class="px-4 py-3 text-left font-medium">Sprint</th>
+            <th class="px-4 py-3 text-left font-medium">Creado</th>
+            <th class="px-4 py-3 text-right font-medium">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% set plan = row.plan %}
+          {% set project = row.project %}
+          <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
+            <td class="px-4 py-3">
+              <span class="font-medium text-slate-200">{{ plan.name }}</span>
+              {% if plan.description %}
+              <span class="text-slate-500 text-xs block">{{ plan.description }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              <a href="/projects/{{ project.uuid }}" class="text-slate-300 hover:text-signal transition-colors">{{ project.name }}</a>
+            </td>
+            <td class="px-4 py-3 text-slate-400 text-xs">{{ plan.sprint_id or '—' }}</td>
+            <td class="px-4 py-3 text-slate-400 font-mono text-xs">{{ plan.created_at.strftime('%d/%m/%Y') }}</td>
+            <td class="px-4 py-3 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <a href="/remediation/{{ plan.id }}"
+                   class="text-signal hover:underline text-xs font-medium">Ver plan →</a>
+                <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
+                   class="inline-flex items-center gap-1 text-xs font-medium bg-low/15 text-low ring-1 ring-low/30 px-2.5 py-1 rounded hover:bg-low/25 transition-colors">
+                  Exportar .xlsx
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {{ render_pagination(page, page_size, total, total_pages, "/remediation", "#remediation-plans-table") }}
+    {% else %}
+    <div class="rounded-lg border border-line bg-surface p-10 text-center">
+      <p class="text-lg font-display font-medium text-slate-200">Sin planes de remediación</p>
+      <p class="text-sm mt-2 text-slate-500">Ve al detalle de un proyecto y crea un plan desde allí.</p>
+    </div>
+    {% endif %}
+  </div>

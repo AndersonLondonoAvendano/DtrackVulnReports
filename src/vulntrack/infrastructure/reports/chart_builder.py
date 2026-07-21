@@ -51,6 +51,35 @@ class PrioritizedFindingRow:
     priority_band: PriorityBand
 
 
+@dataclass
+class QuarterlySprintTrendRow:
+    sprint_nombre: str
+    entraron: int
+    resueltas: int
+    pospuestas: int
+    no_cumplidas: int
+    en_curso: int
+    descartadas: int
+
+
+@dataclass
+class QuarterlyProgressData:
+    """T-D048: sección 'Avance de remediación por Q' -- réplica desacoplada de
+    `QuarterlyMetrics` (application layer) para no romper la dirección de
+    dependencias (infra/reports sólo depende de domain, no de application)."""
+
+    anio: int
+    trimestre: int
+    entraron: int
+    resueltas: int
+    pospuestas: int
+    no_cumplidas: int
+    en_curso: int
+    descartadas: int
+    pct_cumplimiento: float | None
+    tendencia_por_sprint: list[QuarterlySprintTrendRow] = field(default_factory=list)
+
+
 # ─── Report data ──────────────────────────────────────────────────────────────
 
 
@@ -79,6 +108,10 @@ class ReportData:
     evolution_rows: list[EvolutionRow] = field(default_factory=list)
     prioritized_findings: list[PrioritizedFindingRow] = field(default_factory=list)
     kev_hits: list[PrioritizedFindingRow] = field(default_factory=list)
+
+    # T-D048: avance de remediación por Q (opcional -- None si no hay
+    # sprints/tratamientos, o si los repos no fueron provistos a BuildReportDataUseCase).
+    quarterly_progress: QuarterlyProgressData | None = None
 
 
 # ─── Palette ──────────────────────────────────────────────────────────────────
@@ -274,6 +307,40 @@ class ChartBuilder:
         ax.set_xticklabels(names, rotation=35, ha="right", fontsize=8)
         ax.set_title(title, fontsize=11, fontweight="bold", color="#1F3864")
         ax.legend(fontsize=9, frameon=False)
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        fig.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+
+    def quarterly_progress_bars(
+        self, progress: QuarterlyProgressData | None, title: str
+    ) -> io.BytesIO:
+        """T-D049: gráfico de barras con las 6 métricas de avance por Q."""
+        if progress is None:
+            return self._empty_chart(title)
+
+        labels = ["Entraron", "Resueltas", "Pospuestas", "No cumplidas", "En curso", "Descartadas"]
+        values = [
+            progress.entraron, progress.resueltas, progress.pospuestas,
+            progress.no_cumplidas, progress.en_curso, progress.descartadas,
+        ]
+        colors = ["#1F3864", "#70AD47", "#FF9900", "#C00000", "#2E75B6", "#D9D9D9"]
+
+        fig, ax = plt.subplots(figsize=(6, 3.5), dpi=110)
+        bars = ax.bar(labels, values, color=colors)
+        for bar, val in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1, str(val),
+                ha="center", va="bottom", fontsize=8,
+            )
+        ax.set_title(title, fontsize=11, fontweight="bold", color="#1F3864")
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
         ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)

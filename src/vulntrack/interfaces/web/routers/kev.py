@@ -1,13 +1,15 @@
 """T-077: Router KEV — estado y refresh del catálogo CISA KEV."""
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
 from vulntrack.application.sync.sync_kev import SyncKevUseCase
+from vulntrack.domain.services.kev_matcher import KevMatcher
 from vulntrack.interfaces.web._shared import templates
 from vulntrack.interfaces.web.dependencies import (
     get_app_settings,
@@ -84,7 +86,7 @@ async def kev_findings(
     project_repo: Any = Depends(get_project_repo),  # noqa: B008
 ) -> list[KevFindingOut]:
     all_kev = await kev_repo.list_all()
-    kev_by_id = {e.cve_id.upper(): e for e in all_kev}
+    matcher = KevMatcher(all_kev)
 
     findings = await finding_repo.list_all_active()
     projects = await project_repo.list_all()
@@ -92,7 +94,7 @@ async def kev_findings(
 
     result = []
     for f in findings:
-        kev_entry = kev_by_id.get(f.vuln_id.upper())
+        kev_entry = matcher.get_kev_details(f.cve_id or f.vuln_id)
         if kev_entry:
             proj = proj_by_uuid.get(f.project_uuid)
             result.append(
@@ -112,13 +114,15 @@ async def kev_findings(
 @html_router.get("/kev", response_class=HTMLResponse, include_in_schema=False)
 async def kev_html(
     request: Request,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
     kev_repo: Any = Depends(get_kev_repo),  # noqa: B008
     finding_repo: Any = Depends(get_finding_repo),  # noqa: B008
     project_repo: Any = Depends(get_project_repo),  # noqa: B008
 ) -> Any:
     meta = await kev_repo.get_catalog_meta()
     all_kev = await kev_repo.list_all()
-    kev_by_id = {e.cve_id.upper(): e for e in all_kev}
+    matcher = KevMatcher(all_kev)
 
     findings = await finding_repo.list_all_active()
     projects = await project_repo.list_all()
@@ -126,7 +130,7 @@ async def kev_html(
 
     kev_findings = []
     for f in findings:
-        kev_entry = kev_by_id.get(f.vuln_id.upper())
+        kev_entry = matcher.get_kev_details(f.cve_id or f.vuln_id)
         if kev_entry:
             proj = proj_by_uuid.get(f.project_uuid)
             kev_findings.append({
@@ -139,6 +143,11 @@ async def kev_html(
                 "required_action": kev_entry.required_action,
             })
 
+    total = len(kev_findings)
+    start = (page - 1) * page_size
+    paged_kev_findings = kev_findings[start : start + page_size]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+
     from vulntrack.config import get_settings as _gs
     stale_days = _gs().kev_stale_days
     is_stale = True
@@ -146,14 +155,20 @@ async def kev_html(
         age = datetime.now(UTC) - meta.last_fetched_at
         is_stale = age > timedelta(days=stale_days)
 
-    return templates.TemplateResponse(
-        request,
-        "kev.html",
-        {
-            "titulo": "Catálogo KEV",
-            "meta": meta,
-            "kev_findings": kev_findings,
-            "is_stale": is_stale,
-            "stale_days": stale_days,
-        },
+    context = {
+        "titulo": "Catálogo KEV",
+        "meta": meta,
+        "kev_findings": paged_kev_findings,
+        "is_stale": is_stale,
+        "stale_days": stale_days,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
+    template_name = (
+        "partials/kev_findings_table.html"
+        if request.headers.get("hx-request") == "true"
+        else "kev.html"
     )
+    return templates.TemplateResponse(request, template_name, context)

@@ -1,0 +1,84 @@
+{% from "partials/_pagination.html" import render_pagination %}
+{% set _VALID_TARGETS = {
+  'PENDIENTE': ['EN_CURSO', 'POSPUESTA', 'DESCARTADA'],
+  'EN_CURSO': ['FINALIZADA', 'POSPUESTA', 'DESCARTADA'],
+  'POSPUESTA': ['EN_CURSO', 'DESCARTADA'],
+  'NO_CUMPLIDA': ['EN_CURSO', 'POSPUESTA', 'DESCARTADA'],
+  'FINALIZADA': [],
+  'DESCARTADA': [],
+} %}
+<div id="remediation-treatments-table">
+  {% if treatments %}
+  <div class="overflow-x-auto rounded-md border border-line">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="table-header">
+          <th class="px-3 py-2 text-left font-medium">CVE / Vuln ID</th>
+          <th class="px-3 py-2 text-left font-medium">Componente</th>
+          <th class="px-3 py-2 text-center font-medium">Prioridad</th>
+          <th class="px-3 py-2 text-center font-medium">Estado</th>
+          <th class="px-3 py-2 text-left font-medium">Responsable</th>
+          <th class="px-3 py-2 text-center font-medium">Fecha objetivo</th>
+          <th class="px-3 py-2 text-center font-medium">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in treatments %}
+        <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
+          <td class="px-3 py-2 font-mono text-xs text-slate-300">
+            {{ t.vuln_key }}
+            {% if t.recurrence_flag %}
+            <span class="block text-[10px] text-medium">Reincidente ({{ t.recurrence_count }})</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2 text-slate-200">
+            {{ t.component_name or '—' }}
+            {% if t.component_version %}<span class="text-slate-500 text-xs">{{ t.component_version }}</span>{% endif %}
+          </td>
+          <td class="px-3 py-2 text-center">
+            {% set band_color = {'CRITICAL': 'critical', 'HIGH': 'high', 'MEDIUM': 'medium'}.get(t.priority_band, 'low') %}
+            <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ band_color }}/15 text-{{ band_color }} ring-1 ring-{{ band_color }}/30">
+              {{ t.priority_band }}
+            </span>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <span class="text-xs font-mono uppercase text-slate-300">{{ t.estado }}</span>
+            {% if t.finalizacion_subtipo == 'AUSENCIA_DT' %}
+            <span class="block text-[10px] text-low">Resuelta (ausencia en DT)</span>
+            {% endif %}
+            {% set targets = _VALID_TARGETS.get(t.estado, []) %}
+            {% if targets %}
+            <select
+              onchange="vtChangeEstado(this, {{ t.id }})"
+              class="block mt-1 mx-auto rounded-md border border-line bg-surface2 text-slate-300 text-[11px] px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-signal">
+              <option value="" selected>Cambiar a…</option>
+              {% for target in targets %}
+              <option value="{{ target }}">{{ target }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2 text-slate-400">{{ t.responsable or '—' }}</td>
+          <td class="px-3 py-2 text-center font-mono text-slate-400">{{ t.fecha_objetivo or '—' }}</td>
+          <td class="px-3 py-2 text-center">
+            <button
+              hx-delete="/api/v1/treatments/{{ t.id }}"
+              hx-confirm="¿Eliminar este tratamiento del plan?"
+              hx-on::after-request="window.location.reload()"
+              class="text-xs font-medium px-2 py-1 border border-line rounded-md hover:border-critical/50 hover:text-critical transition-colors">
+              🗑
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ render_pagination(page, page_size, total, total_pages, "/remediation/" ~ plan.id, "#remediation-treatments-table") }}
+  {% else %}
+  <div class="text-center py-8 text-slate-500 text-sm">
+    <p>Este plan no tiene tratamientos aún.</p>
+    <p class="mt-2">Usa "+ Agregar manual" o "Generar automático" para materializarlo.</p>
+  </div>
+  {% endif %}
+</div>

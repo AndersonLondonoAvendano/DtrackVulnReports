@@ -6,6 +6,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.metric_snapshot import MetricSnapshot, SnapshotSource
@@ -24,6 +25,10 @@ from vulntrack.infrastructure.dt.response_models import (
     DtMetricsHistory,
     DtProject,
 )
+
+if TYPE_CHECKING:
+    from vulntrack.application.sync.finding_reconciler import FindingReconciler
+    from vulntrack.application.sync.treatment_sync_reconciler import TreatmentSyncReconciler
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +52,16 @@ class SyncPortfolioUseCase:
         finding_repo: FindingRepository,
         snapshot_repo: SnapshotRepository,
         app_settings_repo: AppSettingsRepository | None = None,
+        treatment_reconciler: TreatmentSyncReconciler | None = None,
+        finding_reconciler: FindingReconciler | None = None,
     ) -> None:
         self._dt = dt_client
         self._project_repo = project_repo
         self._finding_repo = finding_repo
         self._snapshot_repo = snapshot_repo
         self._app_settings_repo = app_settings_repo
+        self._treatment_reconciler = treatment_reconciler
+        self._finding_reconciler = finding_reconciler
 
     async def execute(self) -> SyncResult:
         result = SyncResult()
@@ -156,9 +165,7 @@ class SyncPortfolioUseCase:
                 _dt_finding_to_domain(dt_proj.uuid, f, now)
                 for f in [DtFinding.model_validate(rf) for rf in raw_findings]
             ]
-            if findings:
-                await self._finding_repo.upsert_batch(findings)
-            elif metrics.critical + metrics.high + metrics.medium + metrics.low > 0:
+            if not findings and metrics.critical + metrics.high + metrics.medium + metrics.low > 0:
                 logger.warning(
                     "sync_findings_empty_but_metrics_nonzero project=%s "
                     "critical=%d high=%d medium=%d low=%d",
@@ -167,6 +174,27 @@ class SyncPortfolioUseCase:
                     metrics.high,
                     metrics.medium,
                     metrics.low,
+                )
+
+            # Bloque B (T-E013/T-E014): reconcilia identidad D1 -- NUEVA/
+            # SE_MANTIENE/DESAPARECIÓ(→RESUELTA)/REAPARECIÓ(→reincidente). Si no
+            # hay `finding_reconciler` configurado, se conserva el upsert directo
+            # (compatibilidad hacia atrás).
+            reconciliation_summary = None
+            if self._finding_reconciler is not None:
+                reconciliation_summary = await self._finding_reconciler.reconcile(
+                    dt_proj.uuid, findings, now
+                )
+            elif findings:
+                await self._finding_repo.upsert_batch(findings)
+
+            # D3: auto-finaliza tratamientos cuya vulnerabilidad desapareció y
+            # reabre los que reaparecieron (mismo id, T-D023). Sólo se ejecuta
+            # si el fetch de findings tuvo éxito (no en el except de abajo) y
+            # hay un resumen de reconciliación con el que trabajar.
+            if self._treatment_reconciler is not None and reconciliation_summary is not None:
+                await self._treatment_reconciler.reconcile_from_summary(
+                    dt_proj.uuid, reconciliation_summary, synced_at=now
                 )
         except Exception as findings_exc:
             import httpx as _httpx

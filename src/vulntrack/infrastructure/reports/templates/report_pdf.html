@@ -380,10 +380,74 @@
 {% endif %}
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
+     6. AVANCE DE REMEDIACIÓN POR Q
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-title">6. Avance de remediación por Q</div>
+
+{% if data.quarterly_progress %}
+{% set qp = data.quarterly_progress %}
+{% if charts.quarterly_progress %}
+<div class="chart-container">
+  <img src="data:image/png;base64,{{ charts.quarterly_progress }}" alt="Avance de remediación" style="max-width:70%;">
+  <p class="chart-caption">Avance de remediación — {{ qp.anio }}-Q{{ qp.trimestre }}</p>
+</div>
+{% endif %}
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Entraron</th><th>Resueltas</th><th>Pospuestas</th><th>No cumplidas</th>
+      <th>En curso</th><th>Descartadas</th><th>% cumplimiento</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align:center;font-weight:bold;">{{ qp.entraron }}</td>
+      <td style="text-align:center;font-weight:bold;">{{ qp.resueltas }}</td>
+      <td style="text-align:center;font-weight:bold;">{{ qp.pospuestas }}</td>
+      <td style="text-align:center;font-weight:bold;">{{ qp.no_cumplidas }}</td>
+      <td style="text-align:center;font-weight:bold;">{{ qp.en_curso }}</td>
+      <td style="text-align:center;font-weight:bold;">{{ qp.descartadas }}</td>
+      <td style="text-align:center;font-weight:bold;">
+        {% if qp.pct_cumplimiento is not none %}{{ "%.1f"|format(qp.pct_cumplimiento * 100) }}%{% else %}—{% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+{% if qp.tendencia_por_sprint %}
+<div class="subsection-title">Tendencia por sprint</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Sprint</th><th>Entraron</th><th>Resueltas</th><th>Pospuestas</th>
+      <th>No cumplidas</th><th>En curso</th><th>Descartadas</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in qp.tendencia_por_sprint %}
+    <tr>
+      <td>{{ t.sprint_nombre }}</td>
+      <td style="text-align:center;">{{ t.entraron }}</td>
+      <td style="text-align:center;">{{ t.resueltas }}</td>
+      <td style="text-align:center;">{{ t.pospuestas }}</td>
+      <td style="text-align:center;">{{ t.no_cumplidas }}</td>
+      <td style="text-align:center;">{{ t.en_curso }}</td>
+      <td style="text-align:center;">{{ t.descartadas }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% else %}
+<p>No hay sprints ni tratamientos registrados para este período.</p>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
      7. HALLAZGOS PRIORIZADOS
 ═══════════════════════════════════════════════════════════════════════════ -->
 {% if data.prioritized_findings %}
-<div class="section-title">6. Hallazgos priorizados</div>
+<div class="section-title">7. Hallazgos priorizados</div>
 <table class="data-table">
   <thead>
     <tr>
@@ -411,7 +475,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════
      8. CONCLUSIONES
 ═══════════════════════════════════════════════════════════════════════════ -->
-<div class="section-title">7. Conclusiones y recomendaciones</div>
+<div class="section-title">8. Conclusiones y recomendaciones</div>
 <ul class="conclusion-list">
   {% for obs in observations %}
   <li>{{ obs }}</li>
@@ -421,7 +485,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════
      9. FIRMAS
 ═══════════════════════════════════════════════════════════════════════════ -->
-<div class="section-title">8. Firmas</div>
+<div class="section-title">9. Firmas</div>
 <table class="signature-table">
   <thead>
     <tr><th>Elaboró</th><th>Revisó</th><th>Aprobó</th></tr>

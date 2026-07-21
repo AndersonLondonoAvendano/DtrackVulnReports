@@ -7,26 +7,56 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
-from vulntrack.application.queries.prioritized_findings_query import PrioritizedFindingsQuery
+from vulntrack.application.queries.prioritized_findings_query import (
+    PrioritizedFindingsQuery,
+    TreatmentSummary,
+)
 from vulntrack.interfaces.web._shared import templates
-from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query
+from vulntrack.interfaces.web.dependencies import get_prioritized_findings_query, get_sprint_repo
+from vulntrack.interfaces.web.query_params import (
+    OptionalFloatQuery,
+    OptionalIntQuery,
+    OptionalStrQuery,
+)
 from vulntrack.interfaces.web.schemas.pagination import Page
 from vulntrack.interfaces.web.schemas.project import PrioritizedFindingOut
+from vulntrack.interfaces.web.schemas.treatment import TreatmentSummaryOut
 
 router = APIRouter(prefix="/api/v1/findings", tags=["priorizacion"])
 html_router = APIRouter(tags=["priorizacion-html"])
 
 
+def _treatment_summary_out(t: TreatmentSummary | None) -> TreatmentSummaryOut | None:
+    if t is None:
+        return None
+    return TreatmentSummaryOut(
+        treatment_id=t.treatment_id,
+        sprint_id=t.sprint_id,
+        sprint_nombre=t.sprint_nombre,
+        estado=t.estado,
+        responsable=t.responsable,
+        fecha_objetivo=t.fecha_objetivo,
+    )
+
+
 @router.get("/prioritized")
 async def get_prioritized_findings(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=25, ge=1, le=100),
     kev_only: bool = Query(default=False),
-    min_cvss: float | None = Query(default=None),
-    min_epss: float | None = Query(default=None),
+    min_cvss: OptionalFloatQuery = None,
+    min_epss: OptionalFloatQuery = None,
+    sprint_id: OptionalIntQuery = None,
+    treatment_status: OptionalStrQuery = None,
     query: PrioritizedFindingsQuery = Depends(get_prioritized_findings_query),  # noqa: B008
 ) -> Page[PrioritizedFindingOut]:
-    all_items = await query.execute(kev_only=kev_only, min_cvss=min_cvss, min_epss=min_epss)
+    all_items = await query.execute(
+        kev_only=kev_only,
+        min_cvss=min_cvss,
+        min_epss=min_epss,
+        sprint_id=sprint_id,
+        treatment_status=treatment_status,
+    )
     total = len(all_items)
     start = (page - 1) * page_size
     page_items = all_items[start : start + page_size]
@@ -34,6 +64,8 @@ async def get_prioritized_findings(
         PrioritizedFindingOut(
             finding_id=item.finding.id,
             vuln_id=item.finding.vuln_id,
+            project_uuid=item.finding.project_uuid,
+            project_name=item.project_name,
             component_name=item.finding.component_name,
             component_version=item.finding.component_version,
             severity=item.finding.severity.value,
@@ -42,6 +74,7 @@ async def get_prioritized_findings(
             is_kev=item.score.is_kev,
             priority_score=round(item.score.value, 2),
             priority_band=item.score.band.value,
+            treatment=_treatment_summary_out(item.treatment),
         )
         for item in page_items
     ]
@@ -71,23 +104,36 @@ async def get_thresholds() -> dict[str, Any]:
 async def prioritization_html(
     request: Request,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=25, ge=1, le=100),
     kev_only: bool = Query(default=False),
-    min_cvss: float | None = Query(default=None),
-    min_epss: float | None = Query(default=None),
+    min_cvss: OptionalFloatQuery = None,
+    min_epss: OptionalFloatQuery = None,
+    sprint_id: OptionalIntQuery = None,
+    treatment_status: OptionalStrQuery = None,
     query: PrioritizedFindingsQuery = Depends(get_prioritized_findings_query),  # noqa: B008
+    sprint_repo: Any = Depends(get_sprint_repo),  # noqa: B008
 ) -> Any:
-    all_items = await query.execute(kev_only=kev_only, min_cvss=min_cvss, min_epss=min_epss)
+    all_items = await query.execute(
+        kev_only=kev_only,
+        min_cvss=min_cvss,
+        min_epss=min_epss,
+        sprint_id=sprint_id,
+        treatment_status=treatment_status,
+    )
     total = len(all_items)
     start = (page - 1) * page_size
     items = all_items[start : start + page_size]
     total_pages = math.ceil(total / page_size) if total > 0 else 1
+    sprints = await sprint_repo.list_all()
     context = {
         "titulo": "Priorización de Hallazgos",
         "items": items,
         "kev_only": kev_only,
         "min_cvss": min_cvss,
         "min_epss": min_epss,
+        "sprint_id": sprint_id,
+        "treatment_status": treatment_status,
+        "sprints": sprints,
         "page": page,
         "page_size": page_size,
         "total": total,

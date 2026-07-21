@@ -1,3 +1,4 @@
+{% from "partials/_pagination.html" import render_pagination %}
   <!-- Hallazgos priorizados -->
   <div class="rounded-lg border border-line bg-surface p-5" id="findings-table">
     <div class="flex items-center justify-between mb-4">
@@ -60,25 +61,7 @@
         </tbody>
       </table>
     </div>
-    <!-- Paginación -->
-    <div class="flex items-center justify-between mt-3">
-      <p class="text-xs text-slate-500 font-mono">
-        {{ (page - 1) * page_size + 1 }}–{{ [page * page_size, total]|min }} de {{ total }}
-      </p>
-      <div class="flex gap-2">
-        {% if page > 1 %}
-        <a hx-get="/projects/{{ detail.project.uuid }}?page={{ page - 1 }}&page_size={{ page_size }}"
-           hx-target="#findings-table" hx-swap="outerHTML"
-           class="text-sm px-3 py-1.5 border border-line rounded-md text-slate-400 hover:border-signal/50 hover:text-slate-200 transition-colors cursor-pointer">← Anterior</a>
-        {% endif %}
-        <span class="text-sm text-slate-500 px-3 py-1.5 font-mono">{{ page }} / {{ total_pages }}</span>
-        {% if page < total_pages %}
-        <a hx-get="/projects/{{ detail.project.uuid }}?page={{ page + 1 }}&page_size={{ page_size }}"
-           hx-target="#findings-table" hx-swap="outerHTML"
-           class="text-sm px-3 py-1.5 border border-line rounded-md text-slate-400 hover:border-signal/50 hover:text-slate-200 transition-colors cursor-pointer">Siguiente →</a>
-        {% endif %}
-      </div>
-    </div>
+    {{ render_pagination(page, page_size, total, total_pages, "/projects/" + detail.project.uuid, "#findings-table") }}
     {% else %}
     <p class="text-slate-500 text-center py-8 text-sm">Sin hallazgos activos.</p>
     {% endif %}

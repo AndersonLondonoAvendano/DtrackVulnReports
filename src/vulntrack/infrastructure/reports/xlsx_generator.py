@@ -115,6 +115,7 @@ class XlsxGenerator:
         self._sheet_estado(wb, data)
         self._sheet_nuevas(wb, data)
         self._sheet_evolucion(wb, data)
+        self._sheet_quarterly_progress(wb, data)
         self._sheet_prioritized(wb, data)
 
         buf = io.BytesIO()
@@ -301,7 +302,75 @@ class XlsxGenerator:
             chart.set_categories(cats)
             ws.add_chart(chart, "G2")
 
-    # ── Hoja 5: Hallazgos priorizados ─────────────────────────────────────────
+    # ── Hoja 5: Avance de remediación por Q ───────────────────────────────────
+
+    def _sheet_quarterly_progress(self, wb: Workbook, data: ReportData) -> None:
+        ws = wb.create_sheet("Avance por Q")
+        qp = data.quarterly_progress
+
+        if qp is None:
+            ws.cell(
+                row=1, column=1,
+                value="No hay sprints ni tratamientos registrados para este período.",
+            )
+            _autowidth(ws)
+            return
+
+        ws.merge_cells("A1:G1")
+        title_cell = ws["A1"]
+        title_cell.value = f"Avance de remediación — {qp.anio}-Q{qp.trimestre}"
+        title_cell.font = Font(bold=True, size=14, color="1F3864")
+        title_cell.alignment = _ALIGN_CENTER
+
+        headers = [
+            "Entraron", "Resueltas", "Pospuestas", "No cumplidas", "En curso",
+            "Descartadas", "% cumplimiento",
+        ]
+        for col, h in enumerate(headers, start=1):
+            _header_cell(ws, 3, col, h)
+
+        pct_val = round(qp.pct_cumplimiento * 100, 1) if qp.pct_cumplimiento is not None else None
+        values = [
+            qp.entraron, qp.resueltas, qp.pospuestas, qp.no_cumplidas,
+            qp.en_curso, qp.descartadas, pct_val,
+        ]
+        for col, val in enumerate(values, start=1):
+            cell = ws.cell(row=4, column=col, value=val)
+            cell.alignment = _ALIGN_CENTER
+            cell.font = _FONT_DARK_BOLD
+
+        # Gráfico de barras nativo con las 6 métricas
+        chart = BarChart()
+        chart.title = "Avance de remediación"
+        chart.style = 10
+        data_ref = Reference(ws, min_col=1, max_col=6, min_row=3, max_row=4)
+        chart.add_data(data_ref, titles_from_data=True)
+        ws.add_chart(chart, "A6")
+
+        # Tendencia por sprint
+        trend_start = 22
+        if qp.tendencia_por_sprint:
+            ws.cell(row=trend_start, column=1, value="Tendencia por sprint").font = _FONT_NAVY_BOLD
+            trend_headers = [
+                "Sprint", "Entraron", "Resueltas", "Pospuestas",
+                "No cumplidas", "En curso", "Descartadas",
+            ]
+            for col, h in enumerate(trend_headers, start=1):
+                _header_cell(ws, trend_start + 1, col, h)
+            for row_off, t in enumerate(qp.tendencia_por_sprint, start=1):
+                r = trend_start + 1 + row_off
+                ws.cell(row=r, column=1, value=t.sprint_nombre).alignment = _ALIGN_LEFT
+                trend_values = [
+                    t.entraron, t.resueltas, t.pospuestas,
+                    t.no_cumplidas, t.en_curso, t.descartadas,
+                ]
+                for col_off, val in enumerate(trend_values, start=2):
+                    ws.cell(row=r, column=col_off, value=val).alignment = _ALIGN_CENTER
+
+        ws.freeze_panes = "A2"
+        _autowidth(ws)
+
+    # ── Hoja 6: Hallazgos priorizados ─────────────────────────────────────────
 
     def _sheet_prioritized(self, wb: Workbook, data: ReportData) -> None:
         ws = wb.create_sheet("Hallazgos Priorizados")

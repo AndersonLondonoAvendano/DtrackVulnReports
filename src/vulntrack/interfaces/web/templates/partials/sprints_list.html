@@ -1,0 +1,41 @@
+{% from "partials/_pagination.html" import render_pagination %}
+<div id="sprints-list" class="space-y-3">
+  {% if rows %}
+  {% for row in rows %}
+  {% set s = row.sprint %}
+  <div class="rounded-lg border border-line bg-surface p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <span class="font-display text-base font-semibold text-slate-50">{{ s.nombre }}</span>
+        <span class="font-mono text-xs text-slate-500 ml-2">{{ s.q_label }}</span>
+        <span class="text-xs text-slate-500 ml-2">{{ s.fecha_inicio.strftime('%d/%m') }}–{{ s.fecha_fin.strftime('%d/%m') }}</span>
+        <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide ml-2
+                     {{ 'bg-low/15 text-low ring-1 ring-low/30' if s.estado.value == 'ACTIVO'
+                        else ('bg-unassigned/15 text-unassigned ring-1 ring-unassigned/30' if s.estado.value == 'CERRADO'
+                        else 'bg-signal/15 text-signal ring-1 ring-signal/30') }}">
+          {{ s.estado.value }}
+        </span>
+      </div>
+      {% if s.estado.value != 'CERRADO' %}
+      <form method="post" action="/sprints/{{ s.id }}/close"
+            onsubmit="return confirm('¿Cerrar el sprint {{ s.nombre }}? Los tratamientos PENDIENTE/EN_CURSO pasarán a NO_CUMPLIDA. Esta acción no se puede deshacer.');">
+        <button type="submit" class="text-xs font-medium px-3 py-1.5 border border-line rounded-md hover:border-critical/50 hover:text-critical transition-colors">
+          Cerrar sprint
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    <p class="text-xs text-slate-500 mt-2">
+      {{ row.total }} tratamiento{{ 's' if row.total != 1 }}{% if row.summary %}:
+      {% for estado, count in row.summary.items() %}{{ count }} {{ estado }}{{ ', ' if not loop.last }}{% endfor %}
+      {% else %} — sin tratamientos{% endif %}
+    </p>
+  </div>
+  {% endfor %}
+  {{ render_pagination(page, page_size, total, total_pages, "/sprints", "#sprints-list") }}
+  {% else %}
+  <div class="rounded-lg border border-line bg-surface p-10 text-center text-slate-500">
+    No hay sprints creados todavía.
+  </div>
+  {% endif %}
+</div>

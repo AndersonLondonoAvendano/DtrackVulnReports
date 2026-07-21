@@ -88,6 +88,7 @@
         <a href="/kev"            class="hover:text-signal transition-colors">KEV</a>
         <a href="/reports"        class="hover:text-signal transition-colors">Reportes</a>
         <a href="/remediation"    class="hover:text-signal transition-colors">Remediación</a>
+        <a href="/sprints"        class="hover:text-signal transition-colors">Sprints</a>
         <a href="/settings"       class="hover:text-signal transition-colors">Configuración</a>
       </div>
     </div>
@@ -102,6 +103,86 @@
   <footer class="border-t border-line mt-12 py-4 text-center text-xs text-slate-500 font-mono">
     VulnTrack Reports
   </footer>
+
+  <!-- T-E030: toast genérico de error para respuestas HTMX 4xx/5xx -- evita
+       páginas en blanco o JSON crudo cuando una acción falla (409, 422, etc). -->
+  <div id="global-error-toast"
+       class="hidden fixed bottom-4 right-4 z-[100] max-w-sm rounded-md border px-4 py-3 shadow-lg text-sm"
+       role="alert" aria-live="assertive">
+    <div class="flex items-start gap-3">
+      <span id="global-error-toast-message" class="flex-1"></span>
+      <button type="button" onclick="document.getElementById('global-error-toast').classList.add('hidden')"
+              class="text-current opacity-70 hover:opacity-100 leading-none">&times;</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      // Filtros opcionales (CVSS/EPSS mínimo, sprint, estado, etc.) viajan
+      // como campos vacíos cuando el usuario no los usa -- FastAPI rechaza
+      // con 422 un query param tipado `float | None`/`int | None` que llega
+      // como cadena vacía ("no es un número válido"). En vez de reproducir
+      // esta limpieza en cada formulario/paginación, se hace una sola vez
+      // aquí para cualquier request disparado por htmx en toda la app.
+      document.body.addEventListener('htmx:configRequest', function (evt) {
+        var params = evt.detail.parameters;
+        Object.keys(params).forEach(function (key) {
+          if (params[key] === '') { delete params[key]; }
+        });
+      });
+
+      var toast = document.getElementById('global-error-toast');
+      var messageEl = document.getElementById('global-error-toast-message');
+      var hideTimer = null;
+
+      function showError(message, status) {
+        messageEl.textContent = message;
+        var isServerError = status >= 500;
+        toast.className = toast.className
+          .replace(/bg-\S+|text-\S+|ring-\S+|border-\S+/g, '')
+          .trim();
+        toast.classList.add(
+          'fixed', 'bottom-4', 'right-4', 'z-[100]', 'max-w-sm', 'rounded-md',
+          'border', 'px-4', 'py-3', 'shadow-lg', 'text-sm'
+        );
+        if (isServerError) {
+          toast.classList.add('bg-critical/15', 'text-critical', 'border-critical/40');
+        } else {
+          toast.classList.add('bg-medium/15', 'text-medium', 'border-medium/40');
+        }
+        toast.classList.remove('hidden');
+        if (hideTimer) { clearTimeout(hideTimer); }
+        hideTimer = setTimeout(function () { toast.classList.add('hidden'); }, 8000);
+      }
+
+      function extractDetail(xhr) {
+        try {
+          var body = JSON.parse(xhr.responseText);
+          if (body && typeof body.detail === 'string') { return body.detail; }
+          if (body && Array.isArray(body.detail) && body.detail.length) {
+            // Errores de validación de FastAPI/Pydantic (422): lista de objetos.
+            return body.detail.map(function (d) { return d.msg || String(d); }).join('; ');
+          }
+        } catch (e) { /* respuesta no era JSON */ }
+        return 'Ocurrió un error inesperado (HTTP ' + xhr.status + ').';
+      }
+
+      document.body.addEventListener('htmx:responseError', function (evt) {
+        var xhr = evt.detail.xhr;
+        showError(extractDetail(xhr), xhr.status);
+      });
+      document.body.addEventListener('htmx:sendError', function () {
+        showError('No se pudo conectar con el servidor. Verifica tu conexión.', 0);
+      });
+
+      // Expuesto para acciones que no pasan por htmx (p. ej. fetch() manual
+      // desde el selector de estado de tratamientos) y quieren reusar el
+      // mismo toast global en vez de duplicar el mecanismo.
+      window.showGlobalErrorToast = showError;
+      window.extractErrorDetailFromResponseText = function (responseText, status) {
+        return extractDetail({ responseText: responseText, status: status });
+      };
+    })();
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>

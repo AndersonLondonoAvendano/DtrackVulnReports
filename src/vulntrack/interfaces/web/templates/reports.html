@@ -70,8 +70,13 @@
           <label class="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="formats" value="docx" class="rounded border-line bg-surface2 accent-signal"> Word (.docx)
           </label>
-          <label class="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" name="formats" value="pdf" class="rounded border-line bg-surface2 accent-signal"> PDF
+          <label class="flex items-center gap-2 text-sm {{ 'text-slate-300' if pdf_available else 'text-slate-600 cursor-not-allowed' }}"
+                 {% if not pdf_available %}title="PDF no disponible en este servidor: falta WeasyPrint/GTK. Usa Excel o Word."{% endif %}>
+            <input type="checkbox" name="formats" value="pdf"
+                   class="rounded border-line bg-surface2 accent-signal"
+                   {{ 'disabled' if not pdf_available }}>
+            PDF
+            {% if not pdf_available %}<span class="text-[11px] text-slate-500">(no disponible en este servidor)</span>{% endif %}
           </label>
         </div>
       </div>

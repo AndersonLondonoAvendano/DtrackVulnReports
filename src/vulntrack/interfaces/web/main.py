@@ -115,6 +115,10 @@ def _register_routers(app: FastAPI) -> None:
     from vulntrack.interfaces.web.routers.remediation import html_router as remediation_html_router
     from vulntrack.interfaces.web.routers.config import router as config_router
     from vulntrack.interfaces.web.routers.config import html_router as config_html_router
+    from vulntrack.interfaces.web.routers.sprints import router as sprints_router
+    from vulntrack.interfaces.web.routers.sprints import html_router as sprints_html_router
+    from vulntrack.interfaces.web.routers.treatments import router as treatments_router
+    from vulntrack.interfaces.web.routers.metrics import router as metrics_router
 
     app.include_router(sync_router)
     app.include_router(sync_html_router)
@@ -131,6 +135,10 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(remediation_html_router)
     app.include_router(config_router)
     app.include_router(config_html_router)
+    app.include_router(sprints_router)
+    app.include_router(sprints_html_router)
+    app.include_router(treatments_router)
+    app.include_router(metrics_router)
 
 
 async def _check_dt(settings: Settings) -> bool:

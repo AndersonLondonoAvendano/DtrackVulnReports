@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Sprints — VulnTrack Reports{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div>
+    <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Remediación</p>
+    <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Sprints</h1>
+  </div>
+
+  <!-- Formulario nuevo sprint -->
+  <div class="rounded-lg border border-line bg-surface p-5">
+    <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200 mb-4">Nuevo sprint</h2>
+    <form method="post" action="/sprints" class="flex flex-wrap gap-3 items-end">
+      <div class="flex-1 min-w-48">
+        <label class="block text-xs text-slate-500 mb-1">Nombre *</label>
+        <input type="text" name="nombre" required placeholder="Sprint 2026-Q3-01"
+               class="w-full rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">Fecha inicio *</label>
+        <input type="date" name="fecha_inicio" required
+               class="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">Fecha fin *</label>
+        <input type="date" name="fecha_fin" required
+               class="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+      </div>
+      <button type="submit" class="bg-signal text-ink text-sm font-medium px-4 py-2 rounded-md hover:bg-signal/90 transition-colors whitespace-nowrap">
+        + Nuevo sprint
+      </button>
+    </form>
+  </div>
+
+  <!-- Lista de sprints -->
+  {% include "partials/sprints_list.html" %}
+
+</div>
+{% endblock %}

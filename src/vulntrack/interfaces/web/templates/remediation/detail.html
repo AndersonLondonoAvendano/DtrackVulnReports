@@ -15,103 +15,95 @@
       </a>
       <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">{{ plan.name }}</h1>
       {% if plan.description %}<p class="text-slate-500 text-sm mt-1">{{ plan.description }}</p>{% endif %}
+      {% if plan.sprint_id %}<p class="text-slate-500 text-xs mt-1 font-mono">Sprint {{ plan.sprint_id }}</p>{% endif %}
     </div>
     <div class="flex flex-wrap gap-2">
       <button
-        hx-post="/api/v1/remediation/plans/{{ plan.id }}/suggest"
-        hx-swap="none"
-        hx-on::after-request="window.location.reload()"
-        class="inline-flex items-center gap-2 text-sm font-medium bg-medium/15 text-medium ring-1 ring-medium/30 px-4 py-2 rounded-md hover:bg-medium/25 transition-colors">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/>
-        </svg>
-        Generar sugerencias
+        type="button"
+        hx-get="/remediation/plans/{{ plan.id }}/available-vulnerabilities-modal"
+        hx-target="#add-manual-modal-body" hx-swap="innerHTML"
+        hx-on::after-request="document.getElementById('add-manual-modal').classList.remove('hidden')"
+        class="inline-flex items-center gap-2 text-sm font-medium bg-signal/15 text-signal ring-1 ring-signal/30 px-4 py-2 rounded-md hover:bg-signal/25 transition-colors">
+        + Agregar manual
       </button>
+      <form method="post" action="/remediation/plans/{{ plan.id }}/treatments/generate-form" class="flex items-center gap-1">
+        <input type="number" name="top_n" value="10" min="1" max="100"
+               class="w-16 rounded-md border border-line bg-surface2 px-2 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
+        <button type="submit"
+                class="inline-flex items-center gap-2 text-sm font-medium bg-medium/15 text-medium ring-1 ring-medium/30 px-4 py-2 rounded-md hover:bg-medium/25 transition-colors whitespace-nowrap">
+          ⚡ Generar automático
+        </button>
+      </form>
       <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=xlsx"
          class="inline-flex items-center gap-2 text-sm font-medium bg-low/15 text-low ring-1 ring-low/30 px-4 py-2 rounded-md hover:bg-low/25 transition-colors">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
         Exportar .xlsx
       </a>
       <a href="/api/v1/remediation/plans/{{ plan.id }}/export?fmt=pdf"
          class="inline-flex items-center gap-2 text-sm font-medium bg-signal/15 text-signal ring-1 ring-signal/30 px-4 py-2 rounded-md hover:bg-signal/25 transition-colors">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
         Exportar PDF
       </a>
     </div>
   </div>
 
-  <!-- Tabla de tareas -->
+  <!-- Tabla de tratamientos -->
   <div class="rounded-lg border border-line bg-surface p-5">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Tareas</h2>
-      <span class="font-mono text-xs text-slate-500">{{ tasks|length }}</span>
+      <h2 class="font-display text-sm font-semibold uppercase tracking-wide text-slate-200">Tratamientos</h2>
+      <span class="font-mono text-xs text-slate-500">{{ total }}</span>
     </div>
-    {% if tasks %}
-    <div class="overflow-x-auto rounded-md border border-line">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="table-header">
-            <th class="px-3 py-2 text-left font-medium">Tarea</th>
-            <th class="px-3 py-2 text-center font-medium">Prioridad</th>
-            <th class="px-3 py-2 text-center font-medium">Estado</th>
-            <th class="px-3 py-2 text-left font-medium">Responsable</th>
-            <th class="px-3 py-2 text-center font-medium">Fecha objetivo</th>
-            <th class="px-3 py-2 text-center font-medium">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for task in tasks %}
-          <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors {{ 'opacity-50' if task.status.value == 'DISCARDED' }}">
-            <td class="px-3 py-2">
-              <div class="font-medium text-slate-200">{{ task.title }}</div>
-              {% if task.recommended_action %}
-              <div class="text-xs text-slate-500 mt-0.5">{{ task.recommended_action }}</div>
-              {% endif %}
-            </td>
-            <td class="px-3 py-2 text-center">
-              {% set band_color = {'CRITICAL': 'critical', 'HIGH': 'high', 'MEDIUM': 'medium'}.get(task.priority_band.value, 'low') %}
-              <span class="inline-flex rounded px-2 py-0.5 text-xs font-mono uppercase tracking-wide bg-{{ band_color }}/15 text-{{ band_color }} ring-1 ring-{{ band_color }}/30">
-                {{ task.priority_band.value }}
-              </span>
-            </td>
-            <td class="px-3 py-2 text-center">
-              <!-- Status editable inline con HTMX -->
-              <select
-                name="status"
-                hx-patch="/api/v1/remediation/tasks/{{ task.id }}"
-                hx-ext="json-enc"
-                hx-swap="none"
-                hx-on::after-request="this.closest('tr').classList.add(event.detail.successful ? 'bg-low/10' : 'bg-critical/10')"
-                class="rounded-md border border-line bg-surface2 text-slate-200 text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-signal focus:border-signal transition-colors">
-                {% for status in ['PENDING','IN_PROGRESS','COMPLETED','DISCARDED'] %}
-                <option value="{{ status }}" {{ 'selected' if task.status.value == status }}>
-                  {{ status }}
-                </option>
-                {% endfor %}
-              </select>
-            </td>
-            <td class="px-3 py-2 text-slate-400">{{ task.assignee or '—' }}</td>
-            <td class="px-3 py-2 text-center font-mono {{ 'text-critical font-semibold' if task.is_overdue(today) else 'text-slate-400' }}">
-              {{ task.target_date or '—' }}
-            </td>
-            <td class="px-3 py-2 text-center text-xs font-mono text-low">
-              {% if task.completed_at %}✓ {{ task.completed_at.strftime('%d/%m') }}{% else %}<span class="text-slate-600">—</span>{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="text-center py-8 text-slate-500 text-sm">
-      <p>Este plan no tiene tareas aún.</p>
-      <p class="mt-2">Usa el botón "Generar sugerencias" para crear tareas automáticamente.</p>
-    </div>
-    {% endif %}
+    {% include "partials/remediation_treatments_table.html" %}
   </div>
 </div>
+
+<!-- Modal: Agregar manual (T-E023) -->
+<div id="add-manual-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4">
+  <div class="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg border border-line bg-surface p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display text-lg font-semibold text-slate-50">Agregar vulnerabilidades disponibles</h3>
+      <button type="button" onclick="document.getElementById('add-manual-modal').classList.add('hidden')"
+              class="text-slate-400 hover:text-slate-200 text-xl leading-none">&times;</button>
+    </div>
+    <div id="add-manual-modal-body">
+      <!-- Contenido cargado vía HTMX al abrir el modal -->
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // T-D022/UX: cambiar el estado de un tratamiento desde la tabla del plan.
+  // POSPUESTA/DESCARTADA exigen un motivo (validado también por el backend);
+  // se pide con prompt() para no complicar la tabla con un formulario extra.
+  function vtChangeEstado(selectEl, treatmentId) {
+    var target = selectEl.value;
+    if (!target) { return; }
+
+    var body = { estado: target };
+    if (target === 'POSPUESTA' || target === 'DESCARTADA') {
+      var motivo = window.prompt('Motivo (requerido para pasar a ' + target + '):');
+      if (!motivo) { selectEl.value = ''; return; }
+      body.motivo = motivo;
+    }
+
+    fetch('/api/v1/treatments/' + treatmentId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.location.reload();
+        return;
+      }
+      resp.text().then(function (text) {
+        var message = window.extractErrorDetailFromResponseText(text, resp.status);
+        window.showGlobalErrorToast(message, resp.status);
+        selectEl.value = '';
+      });
+    }).catch(function () {
+      window.showGlobalErrorToast('No se pudo conectar con el servidor. Verifica tu conexión.', 0);
+      selectEl.value = '';
+    });
+  }
+</script>
 {% endblock %}

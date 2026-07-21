@@ -10,7 +10,7 @@
       <p class="font-mono text-xs uppercase tracking-[0.2em] text-signal">Portafolio</p>
       <h1 class="font-display text-3xl font-semibold text-slate-50 mt-1">Proyectos</h1>
     </div>
-    <span class="font-mono text-xs text-slate-500">{{ projects|length }} proyecto{{ 's' if projects|length != 1 else '' }}</span>
+    <span class="font-mono text-xs text-slate-500">{{ total }} proyecto{{ 's' if total != 1 else '' }}</span>
   </div>
 
   <!-- Filtro de búsqueda -->
@@ -32,60 +32,6 @@
     {% endif %}
   </form>
 
-  {% if projects %}
-  <div class="rounded-lg border border-line bg-surface overflow-hidden">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="table-header">
-          <th class="px-4 py-3 text-left font-medium">
-            <a href="?sort=name&order={{ 'desc' if sort=='name' and order=='asc' else 'asc' }}&search={{ search or '' }}"
-               class="inline-flex items-center gap-1 hover:text-signal transition-colors">
-              Nombre
-              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </a>
-          </th>
-          <th class="px-4 py-3 text-left font-medium">Versión</th>
-          <th class="px-4 py-3 text-left font-medium">Última sync</th>
-          <th class="px-4 py-3 text-right font-medium">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in projects %}
-        <tr class="border-b border-line last:border-0 hover:bg-surface2/60 transition-colors">
-          <td class="px-4 py-3 font-medium">
-            <a href="/projects/{{ p.uuid }}" class="text-slate-100 hover:text-signal transition-colors">{{ p.name }}</a>
-          </td>
-          <td class="px-4 py-3 text-slate-400 font-mono text-xs">{{ p.version or '—' }}</td>
-          <td class="px-4 py-3 text-slate-400 font-mono text-xs">
-            {{ p.last_synced_at.strftime('%d/%m/%Y %H:%M') if p.last_synced_at else '—' }}
-          </td>
-          <td class="px-4 py-3 text-right">
-            <a href="/projects/{{ p.uuid }}"
-               class="inline-flex items-center gap-1 text-signal hover:underline text-xs font-medium">
-              Ver detalle
-              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="rounded-lg border border-line bg-surface p-10 text-center">
-    <p class="text-lg font-display font-medium text-slate-200">Sin proyectos</p>
-    <p class="text-sm mt-2 text-slate-500">
-      {% if search %}
-      No se encontraron proyectos con el término "{{ search }}".
-      {% else %}
-      Configura la conexión en <a href="/settings" class="text-signal hover:underline">Configuración</a> y ejecuta la primera sincronización.
-      {% endif %}
-    </p>
-  </div>
-  {% endif %}
+  {% include "partials/project_list_table.html" %}
 </div>
 {% endblock %}

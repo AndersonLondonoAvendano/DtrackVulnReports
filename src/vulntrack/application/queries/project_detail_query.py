@@ -6,15 +6,27 @@ from dataclasses import dataclass
 from vulntrack.domain.entities.finding import Finding
 from vulntrack.domain.entities.metric_snapshot import MetricSnapshot
 from vulntrack.domain.entities.project import Project
-from vulntrack.domain.entities.remediation import RemediationPlan, RemediationTask
+from vulntrack.domain.entities.remediation import RemediationPlan
+from vulntrack.domain.entities.vulnerability_treatment import (
+    TratamientoVulnerabilidad,
+    TreatmentStatus,
+)
 from vulntrack.domain.exceptions import ProjectNotFoundError
 from vulntrack.domain.ports.finding_repository import FindingRepository
 from vulntrack.domain.ports.project_repository import ProjectRepository
 from vulntrack.domain.ports.remediation_repository import RemediationRepository
 from vulntrack.domain.ports.snapshot_repository import SnapshotRepository
+from vulntrack.domain.ports.treatment_repository import TreatmentRepository
 from vulntrack.domain.services.kev_matcher import KevMatcher
 from vulntrack.domain.services.prioritization import PrioritizationService, PriorityWeights
 from vulntrack.domain.value_objects.priority_score import PriorityScore
+
+# "Abiertas": aún no llegaron a un estado terminal (D4 -- FINALIZADA/DESCARTADA
+# cierran el ciclo del tratamiento; NO_CUMPLIDA libera la vulnerabilidad de
+# vuelta a "disponibles" en vez de contarse como abierta).
+_OPEN_TREATMENT_STATES = frozenset(
+    {TreatmentStatus.PENDIENTE, TreatmentStatus.EN_CURSO, TreatmentStatus.POSPUESTA}
+)
 
 
 @dataclass
@@ -29,7 +41,7 @@ class ProjectDetailData:
     current_snapshot: MetricSnapshot | None
     prioritized_findings: list[PrioritizedFinding]
     remediation_plans: list[RemediationPlan]
-    open_tasks: list[RemediationTask]
+    open_treatments: list[TratamientoVulnerabilidad]
 
 
 class ProjectDetailQuery:
@@ -39,6 +51,7 @@ class ProjectDetailQuery:
         finding_repo: FindingRepository,
         snapshot_repo: SnapshotRepository,
         remediation_repo: RemediationRepository,
+        treatment_repo: TreatmentRepository,
         kev_matcher: KevMatcher,
         weights: PriorityWeights | None = None,
     ) -> None:
@@ -46,6 +59,7 @@ class ProjectDetailQuery:
         self._finding_repo = finding_repo
         self._snapshot_repo = snapshot_repo
         self._remediation_repo = remediation_repo
+        self._treatment_repo = treatment_repo
         self._kev_matcher = kev_matcher
         self._svc = PrioritizationService(weights)
 
@@ -74,15 +88,13 @@ class ProjectDetailQuery:
         )
 
         plans = await self._remediation_repo.list_plans_by_project(project_uuid)
-        open_tasks: list[RemediationTask] = []
-        for plan in plans:
-            tasks = await self._remediation_repo.list_tasks_by_plan(plan.id)
-            open_tasks.extend(tasks)
+        treatments = await self._treatment_repo.list_by_project(project_uuid)
+        open_treatments = [t for t in treatments if t.estado in _OPEN_TREATMENT_STATES]
 
         return ProjectDetailData(
             project=project,
             current_snapshot=current_snapshot,
             prioritized_findings=prioritized,
             remediation_plans=plans,
-            open_tasks=open_tasks,
+            open_treatments=open_treatments,
         )

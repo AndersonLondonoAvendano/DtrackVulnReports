@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vulntrack.domain.entities.finding import Finding
+from vulntrack.domain.entities.finding import Finding, FindingLifecycleState
 from vulntrack.infrastructure.persistence.mappers import orm_to_finding
 from vulntrack.infrastructure.persistence.orm_models import FindingORM
 
@@ -34,6 +34,8 @@ class SqliteFindingRepository:
                 attributed_on=f.attributed_on,
                 suppressed=f.suppressed,
                 last_synced_at=f.last_synced_at,
+                primera_deteccion_at=f.last_synced_at,
+                ultima_vista_at=f.last_synced_at,
                 created_at=now,
                 updated_at=now,
             )
@@ -53,6 +55,7 @@ class SqliteFindingRepository:
                     "attributed_on": stmt.excluded.attributed_on,
                     "suppressed": stmt.excluded.suppressed,
                     "last_synced_at": stmt.excluded.last_synced_at,
+                    "ultima_vista_at": stmt.excluded.ultima_vista_at,
                     "updated_at": stmt.excluded.updated_at,
                 },
             )
@@ -90,3 +93,52 @@ class SqliteFindingRepository:
             )
         )
         return [orm_to_finding(r) for r in result.scalars().all()]
+
+    async def list_by_lifecycle_state(
+        self, project_uuid: str, estado: FindingLifecycleState
+    ) -> list[Finding]:
+        result = await self._session.execute(
+            select(FindingORM).where(
+                FindingORM.project_uuid == project_uuid,
+                FindingORM.estado_ciclo_vida == estado.value,
+            )
+        )
+        return [orm_to_finding(r) for r in result.scalars().all()]
+
+    async def mark_resolved(self, finding_id: int, resuelta_at: datetime) -> Finding:
+        row = await self._session.get(FindingORM, finding_id)
+        if row is None:
+            raise ValueError(f"Finding {finding_id} not found")
+        row.estado_ciclo_vida = FindingLifecycleState.RESUELTA.value
+        row.resuelta_at = resuelta_at
+        row.updated_at = datetime.now(UTC)
+        await self._session.flush()
+        return orm_to_finding(row)
+
+    async def list_resolved_in_range(
+        self, date_from: date, date_to: date, project_uuid: str | None = None
+    ) -> list[Finding]:
+        dt_from = datetime(date_from.year, date_from.month, date_from.day, 0, 0, 0)
+        dt_to = datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59)
+        stmt = select(FindingORM).where(
+            FindingORM.estado_ciclo_vida == FindingLifecycleState.RESUELTA.value,
+            FindingORM.resuelta_at >= dt_from,
+            FindingORM.resuelta_at <= dt_to,
+        )
+        if project_uuid is not None:
+            stmt = stmt.where(FindingORM.project_uuid == project_uuid)
+        result = await self._session.execute(stmt)
+        return [orm_to_finding(r) for r in result.scalars().all()]
+
+    async def mark_reactivated(self, finding_id: int, reaparicion_at: datetime) -> Finding:
+        row = await self._session.get(FindingORM, finding_id)
+        if row is None:
+            raise ValueError(f"Finding {finding_id} not found")
+        row.estado_ciclo_vida = FindingLifecycleState.ACTIVA.value
+        row.resuelta_at = None
+        row.es_reincidente = True
+        row.reaparicion_count += 1
+        row.ultima_reaparicion_at = reaparicion_at
+        row.updated_at = datetime.now(UTC)
+        await self._session.flush()
+        return orm_to_finding(row)

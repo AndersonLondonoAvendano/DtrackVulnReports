@@ -4,16 +4,13 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 
 from vulntrack.application.queries.project_detail_query import ProjectDetailQuery
-from vulntrack.application.remediation.create_plan import CreatePlanUseCase
 from vulntrack.domain.exceptions import ProjectNotFoundError
 from vulntrack.interfaces.web._shared import templates
 from vulntrack.interfaces.web.dependencies import (
-    get_create_plan_use_case,
-    get_prioritized_findings_query,
     get_project_detail_query,
     get_project_repo,
 )
@@ -86,6 +83,8 @@ async def get_project(
         PrioritizedFindingOut(
             finding_id=pf.finding.id,
             vuln_id=pf.finding.vuln_id,
+            project_uuid=detail.project.uuid,
+            project_name=detail.project.name,
             component_name=pf.finding.component_name,
             component_version=pf.finding.component_version,
             severity=pf.finding.severity.value,
@@ -98,7 +97,7 @@ async def get_project(
         for pf in detail.prioritized_findings
     ]
 
-    open_tasks = sum(1 for t in detail.open_tasks if t.status not in ("COMPLETED", "DISCARDED"))
+    open_tasks = len(detail.open_treatments)
 
     return ProjectDetailOut(
         project=ProjectOut(
@@ -122,6 +121,8 @@ async def projects_html(
     search: str | None = Query(default=None),
     sort: str = Query(default="name"),
     order: str = Query(default="asc"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
     project_repo: Any = Depends(get_project_repo),  # noqa: B008
 ) -> Any:
     projects = await project_repo.list_all()
@@ -131,11 +132,28 @@ async def projects_html(
     if sort == "name":
         projects.sort(key=lambda p: p.name.lower(), reverse=reverse)
 
-    return templates.TemplateResponse(
-        request,
-        "projects/list.html",
-        {"titulo": "Proyectos", "projects": projects, "search": search, "sort": sort, "order": order},
+    total = len(projects)
+    start = (page - 1) * page_size
+    paged_projects = projects[start : start + page_size]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+
+    context = {
+        "titulo": "Proyectos",
+        "projects": paged_projects,
+        "search": search,
+        "sort": sort,
+        "order": order,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
+    template_name = (
+        "partials/project_list_table.html"
+        if request.headers.get("hx-request") == "true"
+        else "projects/list.html"
     )
+    return templates.TemplateResponse(request, template_name, context)
 
 
 @html_router.get("/projects/{uuid}", response_class=HTMLResponse, include_in_schema=False)
@@ -143,7 +161,7 @@ async def project_detail_html(
     request: Request,
     uuid: str,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    page_size: int = Query(default=25, ge=1, le=100),
     query: ProjectDetailQuery = Depends(get_project_detail_query),  # noqa: B008
 ) -> Any:
     try:
@@ -171,14 +189,3 @@ async def project_detail_html(
         else "projects/detail.html"
     )
     return templates.TemplateResponse(request, template_name, context)
-
-
-@html_router.post("/projects/{project_uuid}/remediation/plans", include_in_schema=False)
-async def create_remediation_plan_form(
-    project_uuid: str,
-    name: str = Form(...),
-    description: str | None = Form(default=None),
-    uc: CreatePlanUseCase = Depends(get_create_plan_use_case),  # noqa: B008
-) -> RedirectResponse:
-    await uc.execute(project_uuid, name, description or None)
-    return RedirectResponse(url=f"/projects/{project_uuid}", status_code=303)

@@ -1,0 +1,51 @@
+{# T-D031: componente de paginación reutilizable.
+   Uso: {% from "partials/_pagination.html" import render_pagination %}
+        {{ render_pagination(page, page_size, total, total_pages, "/prioritization", "#findings-table", "kev_only=true&min_cvss=7.0") }}
+   `extra_qs` es un fragmento de query string ya construido por el caller
+   (sin `&` inicial) con los filtros propios de esa pantalla, para
+   preservarlos al cambiar de página o de filas por página. #}
+
+{% macro _plink(base_path, page_size, qs_prefix, hx_target, p, label, disabled) %}
+  {% if disabled %}
+  <span class="text-sm px-2.5 py-1.5 border border-line rounded-md text-slate-600 cursor-not-allowed">{{ label }}</span>
+  {% else %}
+  <a hx-get="{{ base_path }}?page={{ p }}&page_size={{ page_size }}{{ qs_prefix }}"
+     hx-target="{{ hx_target }}" hx-swap="outerHTML"
+     class="text-sm px-2.5 py-1.5 border border-line rounded-md hover:border-signal/50 hover:text-slate-200 text-slate-400 transition-colors cursor-pointer">{{ label }}</a>
+  {% endif %}
+{% endmacro %}
+
+{% macro render_pagination(page, page_size, total, total_pages, base_path, hx_target, extra_qs='') %}
+{% set qs_prefix = ('&' + extra_qs) if extra_qs else '' %}
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-3">
+  <div class="flex items-center gap-2 text-xs text-slate-500">
+    <label for="page-size-select">Filas por página:</label>
+    <select id="page-size-select" name="page_size"
+            hx-get="{{ base_path }}?page=1{{ qs_prefix }}"
+            hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-trigger="change"
+            class="rounded-md border border-line bg-surface2 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-signal">
+      {% for opt in [10, 25, 50, 100] %}
+      <option value="{{ opt }}" {{ 'selected' if opt == page_size }}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+    <span class="font-mono">
+      Mostrando {{ (page - 1) * page_size + 1 if total > 0 else 0 }}–{{ [page * page_size, total]|min }} de {{ total }} fila{{ 's' if total != 1 else '' }}
+    </span>
+  </div>
+  <div class="flex items-center gap-1">
+    {{ _plink(base_path, page_size, qs_prefix, hx_target, 1, '«', page <= 1) }}
+    {{ _plink(base_path, page_size, qs_prefix, hx_target, page - 1, '‹', page <= 1) }}
+    {% for p in build_page_range(page, total_pages) %}
+      {% if p is none %}
+      <span class="text-sm px-2 text-slate-600">…</span>
+      {% elif p == page %}
+      <span class="text-sm px-2.5 py-1.5 rounded-md bg-signal text-ink font-medium font-mono">{{ p }}</span>
+      {% else %}
+      {{ _plink(base_path, page_size, qs_prefix, hx_target, p, p, false) }}
+      {% endif %}
+    {% endfor %}
+    {{ _plink(base_path, page_size, qs_prefix, hx_target, page + 1, '›', page >= total_pages) }}
+    {{ _plink(base_path, page_size, qs_prefix, hx_target, total_pages, '»', page >= total_pages) }}
+  </div>
+</div>
+{% endmacro %}
